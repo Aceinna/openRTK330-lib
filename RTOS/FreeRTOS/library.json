@@ -1,0 +1,13 @@
+{
+	"name": "FreeRTOS",
+ 	"version": "1.0.3",
+ 	"description": "Open Source FreeRTOS library",
+ 	"build": {
+ 		"flags": [
+			"-I include",
+			"-I ."
+ 		],
+		"libArchive": true,
+		"platforms": "aceinna_imu"
+ 	}
+ }

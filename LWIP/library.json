@@ -1,0 +1,19 @@
+{
+	"name": "LWIP",
+ 	"version": "1.0.0",
+ 	"description": "LWIP",
+ 	"build": {
+ 		"flags": [
+			"-I arch",
+			"-I lwip-1.4.1/src/include",
+			"-I lwip-1.4.1/src/include/ipv4",
+			"-I lwip-1.4.1/src/include/netif",
+			"-I lwip_app/user/inc",
+			"-I lwip_app/webserver/inc",
+			"-I lwip_app/NtripClient/inc" ,
+			"-I ."
+ 		],
+		"libArchive": true,
+		"platforms": "aceinna_imu"
+ 	}
+ }

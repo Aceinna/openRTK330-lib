@@ -1,0 +1,16 @@
+{
+	"name": "Platform",
+ 	"version": "1.0.4",
+ 	"description": "LowCostRTK platform library",
+ 	"build": {
+ 		"flags": [
+			"-I .",
+			"-I Core/include",
+			"-I Board/include",
+			"-I Filter/include",
+			"-I Driver/inc"
+ 		],
+		"libArchive": true,
+		"platforms": "aceinna_imu"
+ 	}
+ }

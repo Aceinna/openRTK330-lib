@@ -1,0 +1,10 @@
+{
+	"name": "Baremetal",
+ 	"version": "1.0.3",
+ 	"description": "Baremetal OS library",
+ 	"build": {
+ 		"flags": [
+			"-I ./include"
+ 		]
+ 	}
+ }
