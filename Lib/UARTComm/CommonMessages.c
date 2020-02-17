@@ -36,11 +36,9 @@ limitations under the License.
 #include "appVersion.h"
 #include "platformAPI.h"
 #include "timer.h"
-#include "insoutmsg.h"
 #ifndef BAREMETAL_OS
     #include "sensorsAPI.h"
     #include "UserMessaging.h"
-    #include "rtk_eng.h"
     #include "calibrationAPI.h"
 #else
     #include "bare_osapi.h"
@@ -49,7 +47,7 @@ limitations under the License.
 
 
 IMUDataStruct gIMU;
-extern epoch_t gRef, gRov;
+
 
 /******************************************************************************
  * @name  FillPingPacketPayload - API call ro prepare user output packet
@@ -440,41 +438,7 @@ BOOL Fill_k1PacketPayload(uint8_t *payload, uint8_t *payloadLen)
  ******************************************************************************/
 BOOL Fill_posPacketPayload(uint8_t *payload, uint8_t *payloadLen)
 {
-    pos_payload_t *pld = (pos_payload_t *)payload;
 
-    pld->systemTime = gPtrGnssSol->week;
-    pld->timeOfWeek = (double) gPtrGnssSol->itow / 1000; 
-
-    pld->positionMode = gPtrGnssSol->gpsFixType;
-    pld->latitude = gPtrGnssSol->latitude * RAD_TO_DEG; 
-    pld->longitude = gPtrGnssSol->longitude * RAD_TO_DEG;
-    pld->ellipsoidalHeight = gPtrGnssSol->altitude;
-    pld->mslHeight = 0;             // mslHeight
-    pld->positionRMS = gPtrGnssSol->GPSHorizAcc; 
-    
-    if (gPtrGnssSol->gpsFixType == 0)
-    {
-        pld->velocityMode = 0;
-    }
-    else
-    {
-        pld->velocityMode = 1;  // GPS DOPPLER
-    }
-    pld->velocityNorth = gPtrGnssSol->vNed[0];
-    pld->velocityEast = gPtrGnssSol->vNed[1];
-    pld->velocityDown = gPtrGnssSol->vNed[2];
-    pld->velocityRMS = gPtrGnssSol->velHorAcc;         
-
-    pld->insStatus = inspvaxstr.ins_status;
-    pld->insPositionType = inspvaxstr.pos_type;
-    pld->roll = inspvaxstr.roll;
-    pld->pitch = inspvaxstr.pitch;
-    pld->heading = inspvaxstr.azimuth;
-    pld->rollRMS = inspvaxstr.roll_std;
-    pld->pitchRMS = inspvaxstr.pitch_std;
-    pld->headingRMS = inspvaxstr.azimuth_std;
-
-    *payloadLen = sizeof(pos_payload_t);
     return TRUE;
 }
 
@@ -487,75 +451,6 @@ BOOL Fill_posPacketPayload(uint8_t *payload, uint8_t *payloadLen)
  ******************************************************************************/
 BOOL Fill_skyviewPacketPayload(uint8_t *payload, uint8_t *payloadLen)
 {
-    skyview_payload_t *pld = (skyview_payload_t *)payload;
-    uint8_t sys = 0;
-    uint8_t maxn = gRov.obs.n;
-    static uint8_t index = 0;
-    uint8_t n = 0;
-
-    if (maxn - index*10 <= 0)
-    {
-        index = 0;
-    }
-    else if (maxn - index*10 > 10)
-    {
-        n = (index+1)*10;
-        *payloadLen = sizeof(skyview_payload_t) * 10;
-    }
-    else
-    {
-        n = maxn;
-        *payloadLen = sizeof(skyview_payload_t) * (maxn-index*10);
-    }
-
-    for (uint8_t i = index*10; i < n; i++)
-    {
-        pld->timeOfWeek = (double) gPtrGnssSol->itow / 1000;
-        pld->satelliteId = gRov.vec[i].sat;
-        sys = satsys(gRov.vec[i].sat, NULL);
-        if (sys == _SYS_GPS_)
-        {
-            pld->systemId = 0;
-        }
-        else if (sys == _SYS_GLO_)
-        {
-            pld->systemId = 1;
-        }
-        else if (sys == _SYS_GAL_)
-        {
-            pld->systemId = 2;
-        }
-        else if (sys == _SYS_QZS_)
-        {
-            pld->systemId = 3;
-        }
-        else if (sys == _SYS_BDS_)
-        {
-            pld->systemId = 4;
-        }
-        else if (sys == _SYS_SBS_)
-        {
-            pld->systemId = 5;
-        }
-        else
-        {
-            pld->systemId = 5;
-        }
-        pld->antennaId = 0;     // 0,1...
-        pld->l1cn0 = gRov.obs.data[i].SNR[0] / 4;
-        pld->l2cn0 = gRov.obs.data[i].SNR[1] / 4;
-        pld->azimuth = (float)gRov.vec[i].azel[0] * R2D;
-        pld->elevation = (float)gRov.vec[i].azel[1] * R2D;
-
-        pld++;
-    }
-
-    index++;
-    if (n == maxn)
-    {
-        index = 0;
-    }
-    
-    
+ 
     return true;
 }

@@ -1,0 +1,11 @@
+{
+	"name": "libs",
+ 	"version": "1.0.0",
+ 	"description": "static library",
+ 	"build": {
+ 		"flags": [
+			"-I ."
+ 		],
+	"platforms": "aceinna_imu"
+ 	}
+ }

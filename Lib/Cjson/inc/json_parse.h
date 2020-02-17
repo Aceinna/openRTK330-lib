@@ -22,5 +22,6 @@ int change_item(char *text,char* json_to_write,char* key,char* value);
 void create_json_object(cJSON** json);
 void send_rtk_json_message(cJSON* root);
 char* get_rtk_json_item_value(cJSON *json,char* key);
+void send_rtk_json_to_esp32();
 #endif
 

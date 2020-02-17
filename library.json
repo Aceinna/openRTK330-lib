@@ -1,0 +1,20 @@
+{
+	"name": "OpenRTK-base-library",
+ 	"version": "1.0.0",
+ 	"description": "OpenRTK Base Library",
+    "keywords": "sensors, RTK, INS, AI, automotive, navigation",
+ 	"repository":
+    {
+       "type": "git",
+       "url": "https://github.com/Aceinna/openRTK330-lib.git",
+       "branch": "master"
+    },
+	"build": {
+ 		"flags": [
+			"-I LWIP",
+			"-I Lib"
+		],
+		"libArchive": false,
+        "platforms": "aceinna_imu"
+ 	}
+ }

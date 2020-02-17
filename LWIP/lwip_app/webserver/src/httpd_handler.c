@@ -335,7 +335,6 @@ const char *USER_CONFIG_CGI_Handler(int iIndex, int iNumParams, char *pcParam[],
 			gUserConfiguration.rotationRbvx = atof(pcValue[index_rotationRbvx]);
 			gUserConfiguration.rotationRbvy = atof(pcValue[index_rotationRbvy]);
 			gUserConfiguration.rotationRbvz = atof(pcValue[index_rotationRbvz]);
-            INSINIT();
 			SaveUserConfig();
 		}
 	}

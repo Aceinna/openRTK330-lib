@@ -34,9 +34,7 @@ limitations under the License.
 #include "GlobalConstants.h"
 #include "rtcm.h"
 #include "timer.h"
-#ifndef BAREMETAL_OS
-	#include "datatype.h"
-#endif
+
 /// bit position of updateFlagForEachCall;
 #define GOT_GGA_MSG  			 0
 #define GOT_VTG_MSG  			 1

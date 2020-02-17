@@ -52,6 +52,7 @@ extern osMutexId bt_mutex;
 extern CCMRAM UserConfigurationStruct gUserConfiguration;
 #endif
 
+static void bt_app_json_parse(cJSON* root);
 
 enum BT_CMD_TYPE
 {
@@ -311,12 +312,6 @@ int get_bt_cmd_index(void* cmd)
 int bt_uart_parse(uint8_t* bt_buff)     //TODO:
 {
     static int is_first_rev_bt_mes = 0;
-#if 0
-    uint8_t bt_buff[GPS_BUFF_SIZE];
-    osMutexWait(bt_mutex,portMAX_DELAY);
-    int BtLen = uart_read_bytes(UART_BT, bt_buff, GPS_BUFF_SIZE, 0);
-    osMutexRelease(bt_mutex);
-#endif
     if (bt_buff != NULL)
     {
         if(is_first_rev_bt_mes == 0)
@@ -326,71 +321,10 @@ int bt_uart_parse(uint8_t* bt_buff)     //TODO:
             return BT_CMD;
         }
         cJSON *root;
-        
         root = cJSON_Parse((const char *)bt_buff);
         if (root != NULL)
         {
-#ifndef BAREMETAL_OS
-            cJSON *leverArmBx, *leverArmBy, *leverArmBz;
-            cJSON *pointOfInterestBx, *pointOfInterestBy, *pointOfInterestBz;
-            cJSON *rotationRbvx, *rotationRbvy, *rotationRbvz;
-            leverArmBx = cJSON_GetObjectItem(root, "leverArmBx");
-            leverArmBy = cJSON_GetObjectItem(root, "leverArmBy");
-            leverArmBz = cJSON_GetObjectItem(root, "leverArmBz");
-            pointOfInterestBx = cJSON_GetObjectItem(root, "pointOfInterestBx");
-            pointOfInterestBy = cJSON_GetObjectItem(root, "pointOfInterestBy");
-            pointOfInterestBz = cJSON_GetObjectItem(root, "pointOfInterestBz");
-            rotationRbvx = cJSON_GetObjectItem(root, "RotationRbvx");
-            rotationRbvy = cJSON_GetObjectItem(root, "RotationRbvy");
-            rotationRbvz = cJSON_GetObjectItem(root, "RotationRbvz");
-            if(leverArmBx != NULL)
-            {
-                gUserConfiguration.leverArmBx = (strlen(leverArmBx->valuestring) == 0)? \
-                gUserConfiguration.leverArmBx : atof(leverArmBx->valuestring);
-            }
-            if(leverArmBy != NULL)
-            {
-                gUserConfiguration.leverArmBy = (strlen(leverArmBy->valuestring) == 0)? \
-                gUserConfiguration.leverArmBy : atof(leverArmBy->valuestring);
-            }
-            if(leverArmBz != NULL)
-            {
-                gUserConfiguration.leverArmBz = (strlen(leverArmBz->valuestring) == 0)? \
-                gUserConfiguration.leverArmBz : atof(leverArmBz->valuestring);
-            }
-            if(pointOfInterestBx != NULL)
-            {
-                gUserConfiguration.pointOfInterestBx = (strlen(pointOfInterestBx->valuestring) == 0)? \
-                gUserConfiguration.pointOfInterestBx : atof(pointOfInterestBx->valuestring);
-            }
-            if(pointOfInterestBy != NULL)
-            {
-                gUserConfiguration.pointOfInterestBy = (strlen(pointOfInterestBy->valuestring) == 0)? \
-                gUserConfiguration.pointOfInterestBy : atof(pointOfInterestBy->valuestring);
-            }
-            if(pointOfInterestBz != NULL)
-            {
-                gUserConfiguration.pointOfInterestBz = (strlen(pointOfInterestBz->valuestring) == 0)? \
-                gUserConfiguration.pointOfInterestBz : atof(pointOfInterestBz->valuestring);
-            }
-            if(rotationRbvx != NULL)
-            {
-                gUserConfiguration.rotationRbvx = (strlen(rotationRbvx->valuestring) == 0)? \
-                gUserConfiguration.rotationRbvx : atof(rotationRbvx->valuestring);
-            }
-            if(rotationRbvy != NULL)
-            {
-                gUserConfiguration.rotationRbvy = (strlen(rotationRbvy->valuestring) == 0)? \
-                gUserConfiguration.rotationRbvy : atof(rotationRbvy->valuestring);
-            }
-            if(rotationRbvz != NULL)
-            {
-                gUserConfiguration.rotationRbvz = (strlen(rotationRbvz->valuestring) == 0)? \
-                gUserConfiguration.rotationRbvz : atof(rotationRbvz->valuestring);
-            }
-            INSINIT();
-            SaveUserConfig();
-#endif
+            bt_app_json_parse(root);
             switch(bt_cmd_index)
             {
                 case BT_NAME_CMD_DEBUG:
@@ -406,7 +340,7 @@ int bt_uart_parse(uint8_t* bt_buff)     //TODO:
                     return RTK_JSON;
                     break;
             }
-
+        }
 #if 0
             cJSON *item_packet_type;
             item_packet_type = cJSON_GetObjectItem(root,"UserPacketType");
@@ -421,7 +355,6 @@ int bt_uart_parse(uint8_t* bt_buff)     //TODO:
             free(item_packet_type);
             return RTK_JSON;
 #endif
-        }
         else
         {
             int cmd_type = get_bt_cmd_index(bt_buff);
@@ -436,7 +369,6 @@ int bt_uart_parse(uint8_t* bt_buff)     //TODO:
                 case RTK_MES_CMD:
                     if(rtk_json == NULL)
                     {
-                        //printf("create json\n");
                         create_json_object(&rtk_json);
                     }
                     send_rtk_json_message(rtk_json);
@@ -446,7 +378,7 @@ int bt_uart_parse(uint8_t* bt_buff)     //TODO:
             }
             return BT_CMD;
         }
-        cJSON_Delete(root);
+
     }
     return BT_BASE;
 }
@@ -468,3 +400,149 @@ int get_bt_cmd_index()
     return bt_cmd_index;
 }
 #endif
+
+static void bt_app_json_parse(cJSON* root)
+{
+
+#ifndef BAREMETAL_OS
+    cJSON *leverArmBx, *leverArmBy, *leverArmBz;
+    cJSON *pointOfInterestBx, *pointOfInterestBy, *pointOfInterestBz;
+    cJSON *rotationRbvx, *rotationRbvy, *rotationRbvz;
+    cJSON *packetCode;
+    packetCode = cJSON_GetObjectItem(root,"UserPacketType");
+    leverArmBx = cJSON_GetObjectItem(root, "leverArmBx");
+    leverArmBy = cJSON_GetObjectItem(root, "leverArmBy");
+    leverArmBz = cJSON_GetObjectItem(root, "leverArmBz");
+    pointOfInterestBx = cJSON_GetObjectItem(root, "pointOfInterestBx");
+    pointOfInterestBy = cJSON_GetObjectItem(root, "pointOfInterestBy");
+    pointOfInterestBz = cJSON_GetObjectItem(root, "pointOfInterestBz");
+    rotationRbvx = cJSON_GetObjectItem(root, "rotationRbvx");
+    rotationRbvy = cJSON_GetObjectItem(root, "rotationRbvy");
+    rotationRbvz = cJSON_GetObjectItem(root, "rotationRbvz");
+    if(packetCode != NULL)
+    {
+        gConfiguration.packetCode = ((uint16_t)*(packetCode->valuestring) << 8) + *(packetCode->valuestring + 1);
+        uint16_t type = ((uint16_t)*(packetCode->valuestring + 1) << 8) + *(packetCode->valuestring);
+        setUserPacketType(&type,TRUE);
+        strcpy((char*)gUserConfiguration.userPacketType, (const char*)packetCode->valuestring);
+        SaveUserConfig();
+    }
+    if(leverArmBx != NULL)
+    {
+        if(leverArmBx->type == cJSON_String)
+        {
+            gUserConfiguration.leverArmBx = (strlen(leverArmBx->valuestring) == 0)? \
+            gUserConfiguration.leverArmBx : atof(leverArmBx->valuestring);
+        }
+        else if(leverArmBx->type == cJSON_Number)
+        {
+            gUserConfiguration.leverArmBx = (leverArmBx->valuedouble);
+        }
+    }
+    if(leverArmBy != NULL)
+    {
+        if(leverArmBy->type == cJSON_String)
+        {
+            gUserConfiguration.leverArmBy = (strlen(leverArmBy->valuestring) == 0)? \
+            gUserConfiguration.leverArmBy : atof(leverArmBy->valuestring);
+        }
+        else if(leverArmBy->type == cJSON_Number)
+        {
+            gUserConfiguration.leverArmBy = leverArmBy->valuedouble;
+        }
+    }
+    if(leverArmBz != NULL)
+    {
+        if(leverArmBz->type == cJSON_String)
+        {
+            gUserConfiguration.leverArmBz = (strlen(leverArmBz->valuestring) == 0)? \
+            gUserConfiguration.leverArmBz : atof(leverArmBz->valuestring);
+        }
+        else if(leverArmBz->type == cJSON_Number)
+        {
+            gUserConfiguration.leverArmBz = leverArmBz->valuedouble;
+        }
+    }
+    if(pointOfInterestBx != NULL)
+    {
+        if(pointOfInterestBx->type == cJSON_String)
+        {
+            gUserConfiguration.pointOfInterestBx = (strlen(pointOfInterestBx->valuestring) == 0)? \
+            gUserConfiguration.pointOfInterestBx : atof(pointOfInterestBx->valuestring);
+        }
+        else if(pointOfInterestBx->type == cJSON_Number)
+        {
+            gUserConfiguration.pointOfInterestBx = pointOfInterestBx->valuedouble;
+        }
+    }
+    if(pointOfInterestBy != NULL)
+    {
+        if(pointOfInterestBy->type == cJSON_String)
+        {
+            gUserConfiguration.pointOfInterestBy = (strlen(pointOfInterestBy->valuestring) == 0)? \
+            gUserConfiguration.pointOfInterestBy : atof(pointOfInterestBy->valuestring);
+        }
+        else if(pointOfInterestBy->type == cJSON_Number)
+        {
+            gUserConfiguration.pointOfInterestBy = pointOfInterestBy->valuedouble;
+        }
+    }
+    if(pointOfInterestBz != NULL)
+    {
+        if(pointOfInterestBz->type == cJSON_String)
+        {
+            gUserConfiguration.pointOfInterestBz = (strlen(pointOfInterestBz->valuestring) == 0)? \
+            gUserConfiguration.pointOfInterestBz : atof(pointOfInterestBz->valuestring);
+        }
+        else if(pointOfInterestBz->type == cJSON_Number)
+        {
+            gUserConfiguration.pointOfInterestBz = pointOfInterestBz->valuedouble;
+        }
+    }
+    if(rotationRbvx != NULL)
+    {
+        if(rotationRbvx->type == cJSON_String)
+        {
+            gUserConfiguration.rotationRbvx = (strlen(rotationRbvx->valuestring) == 0)? \
+            gUserConfiguration.rotationRbvx : atof(rotationRbvx->valuestring);
+        }
+        else if(rotationRbvx->type == cJSON_Number)
+        {
+            gUserConfiguration.rotationRbvx = rotationRbvx->valuedouble;
+        }
+    }
+    if(rotationRbvy != NULL)
+    {
+        if(rotationRbvy->type == cJSON_String)
+        {
+            gUserConfiguration.rotationRbvy = (strlen(rotationRbvy->valuestring) == 0)? \
+            gUserConfiguration.rotationRbvy : atof(rotationRbvy->valuestring);
+        }
+        else if(rotationRbvy->type == cJSON_Number)
+        {
+            gUserConfiguration.rotationRbvy = rotationRbvy->valuedouble;
+        }
+    }
+    if(rotationRbvz != NULL)
+    {
+        if(rotationRbvz->type == cJSON_String)
+        {
+            gUserConfiguration.rotationRbvz = (strlen(rotationRbvz->valuestring) == 0)? \
+            gUserConfiguration.rotationRbvz : atof(rotationRbvz->valuestring);
+        }
+        else if(rotationRbvz->type == cJSON_Number)
+        {
+            gUserConfiguration.rotationRbvz = rotationRbvz->valuedouble;
+        }
+    }
+    if((leverArmBx != NULL) || (leverArmBy != NULL) || (leverArmBz != NULL) || \
+        (pointOfInterestBx != NULL) || (pointOfInterestBy != NULL) || (pointOfInterestBz != NULL) || \
+        (rotationRbvx != NULL) || (rotationRbvy != NULL) || (rotationRbvz != NULL))
+        {
+            SaveUserConfig();
+            uart_write_bytes(UART_BT,"##para received!##",strlen("##para received!##"),1);
+            send_rtk_json_to_esp32();
+        }
+
+#endif
+}

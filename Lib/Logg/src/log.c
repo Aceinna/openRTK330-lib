@@ -20,8 +20,7 @@
 #include "uart.h"
 
 #define APP_TAG     "ACEINNA_OPENRTK"
-#define STDOUT_FILENO   1
-#define STDERR_FILENO   2
+
 
 
 ats_log_level_t LOG_LEVEL = ATS_LOG_DEBUG;
@@ -37,16 +36,6 @@ const char* log_type[7] = {
 };
 
 
-__weak int _write(int fd, char* ptr, int len)
-{
-    if (fd == STDOUT_FILENO || fd == STDERR_FILENO)
-    {
-        //uart_write_bytes(UART_DEBUG,ptr,len,1);
-        HAL_UART_Transmit(&huart_debug, (uint8_t *)ptr, len, 0xFFFF); // FOR TESTING ONLY?
-        return len;
-    }
-    return 0;
-}
 
 void ats_log_write(ats_log_level_t level, const char *tag, const char *format, ...)
 {

@@ -33,7 +33,7 @@
 #ifdef   IMU383
 #define  SOFTWARE_PART      "5020-1398-01 0.0.20"   // IMU383  
 #else
-#define  SOFTWARE_PART      "8350-3021-01 0.0.5"    // openrtk330
+#define  SOFTWARE_PART      "8350-3021-01 0.1.0"    // openrtk330
 #endif
 
 #ifdef   BOOT_MODE

@@ -4,6 +4,7 @@
  	"description": "FreeRTOS port functions for M4",
  	"build": {
  		"flags": [
+			"-I include"
  		],
 		"libArchive": true,
 		"platforms": "aceinna_imu"

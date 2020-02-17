@@ -47,7 +47,6 @@
 	#include "sensors_data.h"
 	#include "calibrationAPI.h"
 	#include "sensorsAPI.h"
-	#include "rtk_eng.h"
 #else
     #include "bare_osapi.h"
 #endif
@@ -1298,8 +1297,7 @@ void ExternPortWaitOnTxIdle(void)
  * @param [Out] N/A
  * @retval N/A
  ******************************************************************************/
-void sendP1Packet(uint8_t gps_update);
-extern epoch_t gRov;
+
 void SendContinuousPacket(int dacqRate)
 {
     // here we come at 200 Hz
@@ -1312,7 +1310,6 @@ void SendContinuousPacket(int dacqRate)
         divider = 4; // 50hz
     }
     divider = divider / 4;
-    //sendP1Packet(get_gpsUpdate_state());    //send P1 packet 50Hz from UART_DEBUG
     //divider = 1; 50hz
     if  (divider != 0) { ///< check for quiet mode
         if (divideCount == 1) {
@@ -1326,16 +1323,10 @@ void SendContinuousPacket(int dacqRate)
 
             /// set continuous output packet type based on configuration
             continuousUcbPacket.packetType = UcbPacketBytesToPacketType(type);
-            switch (gConfiguration.packetCode)
-            {
-            case 0x5a50:
-                sendP1Packet(get_gpsUpdate_state());
-                break;
-            
-            default:
+            if (continuousUcbPacket.packetType != UCB_USER_OUT){
                 SendUcbPacket(UART_USER, &continuousUcbPacket);
-                break;
             }
+            
 
             divideCount = divider;
         } else {
@@ -1344,24 +1335,18 @@ void SendContinuousPacket(int dacqRate)
 
         if (divideCount_py == 1) {
             if (checkUserOutPacketType(gConfiguration.packetCode) == UCB_USER_OUT){
-                // pS 0x7053
-                type[0] = 0x70;
-                type[1] = 0x53;
-                continuousUcbPacket.packetType = UcbPacketBytesToPacketType(type);
-                SendUcbPacket(UART_USER, &continuousUcbPacket);
+                if(gPtrGnssSol->gpsFixType != 0)
+                {
+                    // pS 0x7053
+                    type[0] = 0x70;
+                    type[1] = 0x53;
+                    continuousUcbPacket.packetType = UcbPacketBytesToPacketType(type);
+                    SendUcbPacket(UART_USER, &continuousUcbPacket);
+                }
                 // sK 0x734B
                 type[0] = 0x73;
                 type[1] = 0x4B;
                 continuousUcbPacket.packetType = UcbPacketBytesToPacketType(type);
-
-                uint8_t snum = gRov.obs.n / 10;
-                if (gRov.obs.n % 10 != 0){
-                    snum++;
-                }
-                for (uint8_t i = 0; i < snum; i++)
-                {
-                    SendUcbPacket(UART_USER, &continuousUcbPacket);
-                }
             }
 
             divideCount_py = 50; // send 1hz

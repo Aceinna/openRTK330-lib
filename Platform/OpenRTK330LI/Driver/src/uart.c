@@ -203,6 +203,7 @@ int uart_write_bytes(uart_port_e uart_num, const char* src, size_t size, bool is
         {
             if(is_wait == 0)
                 return 0;
+            osDelay(1);
         }
     }
     return RTK_OK;

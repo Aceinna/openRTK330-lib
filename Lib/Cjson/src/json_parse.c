@@ -24,6 +24,9 @@
 #ifndef SENSOR_UNUSED
 	#include "calibrationAPI.h"
 #endif
+#ifndef BAREMETAL_OS
+    #include "UserConfiguration.h"
+#endif
 int change_item(char *text,char* json_to_write,char* key,char* value)
 {
 	char *out;
@@ -111,6 +114,18 @@ void send_rtk_json_message(cJSON* root)
         packet_type_str[0] = packet_type >> 8;
         packet_type_str[1] = packet_type;
         cJSON_AddItemToObject(fmt, "UserPacketType", cJSON_CreateString(packet_type_str));
+#ifndef BAREMETAL_OS
+        float* ins_para = get_user_ins_para();
+        cJSON_AddItemToObject(fmt, "leverArmBx", cJSON_CreateNumber(*ins_para));
+        cJSON_AddItemToObject(fmt, "leverArmBy", cJSON_CreateNumber(*(ins_para+1)));
+        cJSON_AddItemToObject(fmt, "leverArmBz", cJSON_CreateNumber(*(ins_para+2)));
+        cJSON_AddItemToObject(fmt, "pointOfInterestBx", cJSON_CreateNumber(*(ins_para+3)));
+        cJSON_AddItemToObject(fmt, "pointOfInterestBy", cJSON_CreateNumber(*(ins_para+4)));
+        cJSON_AddItemToObject(fmt, "pointOfInterestBz", cJSON_CreateNumber(*(ins_para+5)));
+        cJSON_AddItemToObject(fmt, "rotationRbvx", cJSON_CreateNumber(*(ins_para+6)));
+        cJSON_AddItemToObject(fmt, "rotationRbvy", cJSON_CreateNumber(*(ins_para+7)));
+        cJSON_AddItemToObject(fmt, "rotationRbvz", cJSON_CreateNumber(*(ins_para+8)));
+#endif
         out=cJSON_Print(root);
         //cJSON_Delete(root);       //not delete other code use
         printf("%s\n",out);
@@ -118,28 +133,39 @@ void send_rtk_json_message(cJSON* root)
         free(out);
     }
 }
-#if 0
+void send_rtk_json_to_esp32()
 {
 	cJSON *root,*fmt;
     char *out;
 	root=cJSON_CreateObject();
     char compile_time[50] = __DATE__;
 	root = cJSON_CreateObject();
-    cJSON_AddItemToObject(root, "openrtk config", fmt=cJSON_CreateObject());
-	cJSON_AddItemToObject(fmt, "Product Name", cJSON_CreateString(PRODUCT_NAME_STRING));
-	cJSON_AddItemToObject(fmt, "Product PN", cJSON_CreateString((const char *)platformBuildInfo()));
-	cJSON_AddItemToObject(fmt, "Product SN", cJSON_CreateNumber(GetUnitSerialNum()));
-   	cJSON_AddItemToObject(fmt, "Version", cJSON_CreateString(APP_VERSION_STRING));
-    cJSON_AddItemToObject(fmt, "Compile Time", cJSON_CreateString(compile_time));  
-    int packet_type = configGetPacketCode();
-    char packet_type_str[5] = {0};
-    packet_type_str[0] = packet_type >> 8;
-    packet_type_str[1] = packet_type;
-	cJSON_AddItemToObject(fmt, "UserPacketType", cJSON_CreateString(packet_type_str));
+        cJSON_AddItemToObject(root, "openrtk config", fmt=cJSON_CreateObject());
+        cJSON_AddItemToObject(fmt, "Product Name", cJSON_CreateString(PRODUCT_NAME_STRING));
+        cJSON_AddItemToObject(fmt, "Product PN", cJSON_CreateString((const char *)platformBuildInfo()));
+        cJSON_AddItemToObject(fmt, "Product SN", cJSON_CreateNumber(GetUnitSerialNum()));
+        cJSON_AddItemToObject(fmt, "Version", cJSON_CreateString(APP_VERSION_STRING));
+        cJSON_AddItemToObject(fmt, "Compile Time", cJSON_CreateString(compile_time));  
+        int packet_type = configGetPacketCode();
+        char packet_type_str[5] = {0};
+        packet_type_str[0] = packet_type >> 8;
+        packet_type_str[1] = packet_type;
+        cJSON_AddItemToObject(fmt, "UserPacketType", cJSON_CreateString(packet_type_str));
+#ifndef BAREMETAL_OS
+        float* ins_para = get_user_ins_para();
+        cJSON_AddItemToObject(fmt, "leverArmBx", cJSON_CreateNumber(*ins_para));
+        cJSON_AddItemToObject(fmt, "leverArmBy", cJSON_CreateNumber(*(ins_para+1)));
+        cJSON_AddItemToObject(fmt, "leverArmBz", cJSON_CreateNumber(*(ins_para+2)));
+        cJSON_AddItemToObject(fmt, "pointOfInterestBx", cJSON_CreateNumber(*(ins_para+3)));
+        cJSON_AddItemToObject(fmt, "pointOfInterestBy", cJSON_CreateNumber(*(ins_para+4)));
+        cJSON_AddItemToObject(fmt, "pointOfInterestBz", cJSON_CreateNumber(*(ins_para+5)));
+        cJSON_AddItemToObject(fmt, "rotationRbvx", cJSON_CreateNumber(*(ins_para+6)));
+        cJSON_AddItemToObject(fmt, "rotationRbvy", cJSON_CreateNumber(*(ins_para+7)));
+        cJSON_AddItemToObject(fmt, "rotationRbvz", cJSON_CreateNumber(*(ins_para+8)));
+#endif
 	out=cJSON_Print(root);
     cJSON_Delete(root);
     printf("%s\n",out);
     uart_write_bytes(UART_BT,out,strlen(out),1);
     free(out);
 }
-#endif
