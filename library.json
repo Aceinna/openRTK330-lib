@@ -47,9 +47,11 @@
 			"-I RTOS/FreeRTOS/include",
 			"-I RTOS/FreeRTOS/",
 			"-I RTOS/FreeRtos_M4/include",
-			"-I Sensors/OpenIMU330/Core",
-			"-I Sensors/OpenIMU330/Core/include",
-			"-I Sensors/OpenIMU330/"	
+			"-I Sensors/Core",
+			"-I Sensors/Core/include",
+			"-I Sensors/",	
+			"-L Sensors/",	
+			"-l libSensors.a"
 		],
 		"libArchive": false,
         "platforms": "aceinna_imu"
