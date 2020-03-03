@@ -49,6 +49,7 @@ typedef struct {
  ******************************************************************************/
 void  GetAccelData_g(float *data);
 void GetAccelData_g_AsDouble(double *data);
+void  GetChipAccelData_g(int idx, float *data);
 
 /** ****************************************************************************
  * @name GetAccelData_mPerSecSq
@@ -102,6 +103,7 @@ void  GetBoardTempData_AsDouble(double *data);
  * @retval unit temperature in deg C
  ******************************************************************************/
 float GetUnitTemp();
+float GetChipTemp(int chipId);
 
 /** ****************************************************************************
  * @name FillRawSensorsData
@@ -149,4 +151,36 @@ uint8_t  ActivateSensors();
 uint8_t  InitSensors();
 
 
+/** ****************************************************************************
+ * @name GetRawChipSensorsDataPtr 
+ * @brief Returns pointer to raw sensors data structure (factory use)
+ * @retval N/A
+ ******************************************************************************/
+int   *GetRawChipSensorsDataPtr(int chipId);
+int   *GetRawSensorsDataPtr();
+
+/** ****************************************************************************
+ * @name FillRawSensorsPayload 
+ * @brief Fills raw sensors data into packet payload (factory use)
+ * @retval N/A
+ ******************************************************************************/
+int  FillRawSensorsPayload(void *ptr);
+
+/** ****************************************************************************
+ * @name GetRateData_degPerSec
+ * @brief Get scaled rate sesnors data in deg/ses
+ * @param [in] data - pointer to external data structure
+ * @retval N/A
+ ******************************************************************************/
+// void  GetRateData_degPerSec(double *data);
+void  GetChipRateData_degPerSec(int idx, float *data);
+
+/** ****************************************************************************
+ * @name GetRawTempCounts 
+ * @brief Returns raw temperature counts (factory use)
+ * @retval N/A
+ ******************************************************************************/
+int   GetRawTempCounts();
+
+uint32_t GetSensorsSamplingTstamp();
 #endif

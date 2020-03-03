@@ -136,7 +136,9 @@ err_t NTRIP_GET_Data(uint8_t *rxBuf, uint16_t *rxLen)
 
 	if (ERR_IS_FATAL(err))
 	{
+#ifdef DEVICE_DEBUG
 		printf("NTRIP_GET_Data fail %d\r\n", err);
+#endif
 		NTRIP_client_state = NTRIP_STATE_CONNECT;
 	}
 	
@@ -166,7 +168,9 @@ err_t NTRIP_Recieve_Data(FIFO_Type* fifo)
 
 	if (ERR_IS_FATAL(err))
 	{
+#ifdef DEVICE_DEBUG
 		printf("NTRIP_Recieve_Data fail %d\r\n", err);
+#endif
 		NTRIP_client_state = NTRIP_STATE_CONNECT;
 	}
 	
@@ -188,7 +192,9 @@ err_t NTRIP_Write_Data(uint8_t *txBuf, uint16_t txLen, uint8_t apiflags)
 	err = netconn_write(Ntrip_client, txBuf, txLen, apiflags);
 	if (ERR_IS_FATAL(err))
 	{
+#ifdef DEVICE_DEBUG
 		printf("NTRIP_Write_Data fail %d\r\n", err);
+#endif
 		if (NTRIP_client_state == NTRIP_STATE_REQUEST || NTRIP_client_state == NTRIP_STATE_INTERACTIVE)
 		{
 			NTRIP_client_state = NTRIP_STATE_CONNECT;
@@ -227,8 +233,9 @@ void NTRIP_interface(void)
     switch (NTRIP_client_state)
     {
     case NTRIP_STATE_CONNECT:
+#ifdef DEVICE_DEBUG
         printf("ntrip:connect...\r\n");
-
+#endif
         if (Ntrip_client != NULL)
         {
             netconn_close(Ntrip_client);
@@ -258,24 +265,32 @@ void NTRIP_interface(void)
 
         if (err)
         {
+#ifdef DEVICE_DEBUG
             printf("ntrip:server ip %s\r\n", ip_ntoa(&server_ipaddr));
+#endif
             err = netconn_connect(Ntrip_client, &server_ipaddr, gUserConfiguration.port);
             if (err == ERR_OK)
             {
                 Ntrip_client->recv_timeout = 10;
 
                 NTRIP_client_state = NTRIP_STATE_REQUEST;
+#ifdef DEVICE_DEBUG
                 printf("ntrip:connect success!\r\n");
+#endif
             }
             else
             {
+#ifdef DEVICE_DEBUG
                 printf("ntrip:connect err = %d\r\n", err);
+#endif
             }
         }
         break;
 
     case NTRIP_STATE_REQUEST:
+#ifdef DEVICE_DEBUG
         printf("ntrip:request...\r\n");
+#endif
         OS_Delay(100);
         if (gUserConfiguration.rtkType == LocalRTK)
         {
@@ -297,7 +312,9 @@ void NTRIP_interface(void)
                 ntripRxBuf[rxLen] = 0;
                 if (rxLen && strstr((char *)ntripRxBuf, "ICY 200 OK") != NULL)
                 {
+#ifdef DEVICE_DEBUG
                     printf("ntrip:ICY 200 OK\r\n");
+#endif
                     NTRIP_client_state = NTRIP_STATE_INTERACTIVE;
                     OS_Delay(100);
                 }
@@ -324,7 +341,9 @@ void NTRIP_interface(void)
                 if (ntripRxLen)
                 {
                     ntripRxBuf[ntripRxLen] = 0;
+#ifdef DEVICE_DEBUG
                     printf("%s", ntripRxBuf); //print #GPGGA
+#endif
                     ntripRxLen = 0;
                 }
             }
@@ -332,7 +351,9 @@ void NTRIP_interface(void)
         break;
 
     case NTRIP_STATE_LINK_DOWN:
+#ifdef DEVICE_DEBUG
         printf("ntrip:link down!\r\n");
+#endif
         if (Ntrip_client != NULL)
         {
             netconn_close(Ntrip_client);

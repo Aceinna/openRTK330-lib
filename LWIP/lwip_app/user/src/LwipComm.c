@@ -209,10 +209,12 @@ void netif_set_static_ip(struct netif *netif)
     IP4_ADDR(&netmask, NETMASK_ADDR0, NETMASK_ADDR1, NETMASK_ADDR2, NETMASK_ADDR3);
     IP4_ADDR(&gw, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
 
+#ifdef DEVICE_DEBUG
     printf("Use static ip:\r\n");
     printf("static ip:%d.%d.%d.%d\r\n", IP_ADDR0, IP_ADDR1, IP_ADDR2, IP_ADDR3);
     printf("netmask:%d.%d.%d.%d\r\n", NETMASK_ADDR0, NETMASK_ADDR1, NETMASK_ADDR2, NETMASK_ADDR3);
     printf("gateway:%d.%d.%d.%d\r\n", GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
+#endif
 
     netif_set_addr(netif, &ipaddr, &netmask, &gw);
 }
@@ -266,10 +268,12 @@ void DHCP_thread(void const *argument)
             {
                 eth_dhcp_state = DHCP_STATE_ADDRESS_ASSIGNED;
 
+#ifdef DEVICE_DEBUG
                 printf("DHCP ok!\r\n");
                 printf("IP:%s\r\n", ipaddr_ntoa((const ip_addr_t *)&netif->ip_addr));
                 printf("netmask:%s\r\n", ipaddr_ntoa((const ip_addr_t *)&netif->netmask));
                 printf("gateway:%s\r\n", ipaddr_ntoa((const ip_addr_t *)&netif->gw));
+#endif
             }
             else
             {
@@ -281,7 +285,9 @@ void DHCP_thread(void const *argument)
                     /* Stop DHCP */
                     dhcp_stop(netif);
 
+#ifdef DEVICE_DEBUG
                     printf("DHCP timeout!\r\n");
+#endif
                 }
             }
         }
@@ -336,7 +342,9 @@ void DHCP_thread(void const *argument)
  ******************************************************************************/
 void dnsFoundCallback(const char *name, ip_addr_t *host_ip, void *callback_arg)
 {
+#ifdef DEVICE_DEBUG
     printf("ntrip:hostname %s | ip %s\r\n", name, ip_ntoa(host_ip));
+#endif
 }
 
 /** ***************************************************************************
