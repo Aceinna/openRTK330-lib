@@ -62,11 +62,9 @@ typedef struct {
 
 // payload structure of alternative IMU data message
 typedef struct {
-    uint32_t tstmp;
     double   dbTstmp;
     float    accel_g[3];
     float    rate_dps[3];
-    float    mag_G[3];
     float    temp_C;
 }scaled1_payload_t;
 

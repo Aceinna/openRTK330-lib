@@ -660,53 +660,42 @@ void _UcbScaled0(uint16_t port,
 void _UcbScaled1(uint16_t port,
                  UcbPacketStruct *ptrUcbPacket)
 {
-	uint16_t packetIndex = 0;
+    uint16_t packetIndex = 0;
 
-	ptrUcbPacket->payloadLength = UCB_SCALED_1_LENGTH + 2;
+    ptrUcbPacket->payloadLength = UCB_SCALED_1_LENGTH;
     /// X-accelerometer, Y, Z
-	packetIndex = appendAccels(ptrUcbPacket->payload, packetIndex);
-	/// X-angular rate, Y, Z
-	packetIndex = appendRates(ptrUcbPacket->payload, packetIndex);
+    packetIndex = appendAccels(ptrUcbPacket->payload, packetIndex);
+    /// X-angular rate, Y, Z
+    packetIndex = appendRates(ptrUcbPacket->payload, packetIndex);
 #ifdef RUN_PROFILING
 
     packetIndex = uint16ToBuffer(ptrUcbPacket->payload,
-                           packetIndex,
-                           (uint16_t)SCALE_BY_2POW16_OVER_200(gEkfElapsedTime));
+                                 packetIndex,
+                                 (uint16_t)SCALE_BY_2POW16_OVER_200(gEkfElapsedTime));
     packetIndex = uint16ToBuffer(ptrUcbPacket->payload,
-                           packetIndex,
-                           (uint16_t)SCALE_BY_2POW16_OVER_200(gEkfAvgTime));
+                                 packetIndex,
+                                 (uint16_t)SCALE_BY_2POW16_OVER_200(gEkfAvgTime));
     packetIndex = uint16ToBuffer(ptrUcbPacket->payload,
-                           packetIndex,
-                           (uint16_t)SCALE_BY_2POW16_OVER_200(gEkfMaxTime));
+                                 packetIndex,
+                                 (uint16_t)SCALE_BY_2POW16_OVER_200(gEkfMaxTime));
 
 #else
-	/// rate and board temperature
-	packetIndex = appendTemps(ptrUcbPacket->payload, packetIndex);
+    /// rate and board temperature
+    packetIndex = appendTemps(ptrUcbPacket->payload, packetIndex);
 #endif
 
-    int week = 0;
-    double time = 0;
-    int32_t time_int;
-    gtime_t time_m;
-    time_m.time = imu_time.time;
-    time_m.sec = (double)imu_time.msec / 1000;
-    time = time2gpst(time_m,&week);
-    time_int = time * 1000;
-    packetIndex = uint16ToBuffer(ptrUcbPacket->payload, /// time high 16 bit
+    packetIndex = uint16ToBuffer(ptrUcbPacket->payload, /// packet counter
                                  packetIndex,
-                                 time_int >> 16);
-    packetIndex = uint16ToBuffer(ptrUcbPacket->payload, /// time low 16 bit
-                                 packetIndex,
-                                 (uint16_t)time_int);                                 
+                                 GetSensorsSamplingTstamp());
 
     packetIndex = uint16ToBuffer(ptrUcbPacket->payload, /// BIT status
                                  packetIndex,
-                                 gBitStatus.BITStatus.all );
+                                 gBitStatus.BITStatus.all);
 
-    if( platformGetUnitCommunicationType() == UART_COMM ) {
+    if (platformGetUnitCommunicationType() == UART_COMM)
+    {
         HandleUcbTx(port, ptrUcbPacket); /// send Scaled 1 packet
-    }
-}
+    }}
 
 /** ****************************************************************************
  * @name _UcbScaledM send SM packet
@@ -1316,14 +1305,14 @@ void SendContinuousPacket(int dacqRate)
     //divider = 1; 50hz
     if  (divider != 0) { ///< check for quiet mode
         if (divideCount == 1) {
-            gConfiguration.packetCode = 0x5331; //S1
+            gConfiguration.packetCode = 0x7331; //s1
             /// get enum for requested continuous packet type
             type[0] = (uint8_t)((gConfiguration.packetCode >> 8) & 0xff);
             type[1] = (uint8_t) (gConfiguration.packetCode & 0xff);
 
             /// set continuous output packet type based on configuration
             continuousUcbPacket.packetType = UcbPacketBytesToPacketType(type);
-            if (continuousUcbPacket.packetType != UCB_USER_OUT)
+//            if (continuousUcbPacket.packetType != UCB_USER_OUT)
             {
                 SendUcbPacket(UART_USER, &continuousUcbPacket);
             }

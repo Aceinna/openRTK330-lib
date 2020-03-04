@@ -7,8 +7,6 @@
 
 /*--------------------------------------------------------*/
 
-/* code from rtklib to decode RTCM3 */
-
 #include <time.h>
 #include <math.h>
 #include <stdio.h>
@@ -24,23 +22,164 @@
 //#endif
 #endif
 
-
-
 // #define D2R (0.017453292519943295) /* deg to rad */
 // #define R2D (57.29577951308232) /* rad to deg */
 
 #define SC2RAD 3.1415926535898 /* semi-circle to radian (IS-GPS) */
 #define AU 149597870691.0      /* 1 AU (m) */
 #define AS2R (D2R / 3600.0)    /* arc sec to radian */
-#define CCMRAM __attribute__((section(".ccmram")))
+// #define CCMRAM __attribute__((section(".ccmram")))
+#define RTCM2PREAMB 0x66 /* rtcm ver.2 frame preamble */
+#define RTCM3PREAMB 0xD3 /* rtcm ver.3 frame preamble */
 
-int decode_type4001(rtcm_t *rtcm);
+static int decode_type4001(rtcm_t *rtcm);
 extern void OS_Delay(uint32_t msec);
 
-static int default_glo_frq_table[30] = {1, -4, 05, 06, 01, -4, 05, 06, -2, -7, 00, -1, -2, -7, 00, -1, 04, -3, 03, 02, 04, -3, 03, 02, 0, -5, -99, -99, -99, -99};
 /* set the default week numner for real-time system without a UTC time */
 static uint16_t default_week_number = 2068;
 static uint8_t dayofweek = 3;
+
+static int default_glo_frq_table[30] = {
+	1, -4, 05, 06, 01, -4, 05, 06, -2, -7, 00, -1, -2, -7, 00, -1, 
+	04, -3, 03, 02, 04, -3, 03, 02, 0, -5, -99, -99, -99, -99
+};
+
+const static double gpst0[] = { 1980, 1, 6, 0, 0, 0 }; /* gps time reference */
+//const static double gst0 []={1999,8,22,0,0,0}; /* galileo system time reference */
+const static double bdt0[] = { 2006, 1, 1, 0, 0, 0 }; /* beidou time reference */
+
+static char *obscodes[] = {
+	/* observation code strings */
+
+	"", "1C", "1P", "1W", "1Y", "1M", "1N", "1S", "1L", "1E",   /*  0- 9 */
+	"1A", "1B", "1X", "1Z", "2C", "2D", "2S", "2L", "2X", "2P", /* 10-19 */
+	"2W", "2Y", "2M", "2N", "5I", "5Q", "5X", "7I", "7Q", "7X", /* 20-29 */
+	"6A", "6B", "6C", "6X", "6Z", "6S", "6L", "8L", "8Q", "8X", /* 30-39 */
+	"2I", "2Q", "6I", "6Q", "3I", "3Q", "3X", "1I", "1Q", "5A", /* 40-49 */
+	"5B", "5C", "9A", "9B", "9C", "9X", "", "", "", ""          /* 50-59 */
+};
+/* GPS  */
+static unsigned char obsfreqs_gps[] = {
+	/* 1:L1, 2:L2, 3:L5 */
+	0, 1, 1, 1, 1, 1, 1, 1, 1, 1, /*  0- 9 */
+	0, 0, 1, 1, 2, 2, 2, 2, 2, 2, /* 10-19 */
+	2, 2, 2, 2, 3, 3, 3, 0, 0, 0, /* 20-29 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 30-39 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 40-49 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0  /* 50-59 */
+};
+/* GLO */
+static unsigned char obsfreqs_glo[] = {
+	/* 1:G1, 2:G2, 3:G3 */
+	0, 1, 1, 0, 0, 0, 0, 0, 0, 0, /*  0- 9 */
+	0, 0, 0, 0, 2, 0, 0, 0, 0, 2, /* 10-19 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 20-29 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 30-39 */
+	0, 0, 0, 0, 3, 3, 3, 0, 0, 0, /* 40-49 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0  /* 50-59 */
+};
+/* GAL */
+static unsigned char obsfreqs_gal[] = {
+	/* 1:E1, 2:E5b, 3:E5a, 4:E5(a+b), 5:E6 */
+	0, 1, 0, 0, 0, 0, 0, 0, 0, 0, /*  0- 9 */
+	1, 1, 1, 1, 0, 0, 0, 0, 0, 0, /* 10-19 */
+	0, 0, 0, 0, 3, 3, 3, 2, 2, 2, /* 20-29 */
+	5, 5, 5, 5, 5, 0, 0, 4, 4, 4, /* 30-39 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 40-49 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0  /* 50-59 */
+};
+/* QZSS */
+static unsigned char obsfreqs_qzs[] = {
+	/* 1:L1, 2:L2, 3:L5, 4:LEX, 5:S */
+	0, 1, 0, 0, 0, 0, 0, 1, 1, 0, /*  0- 9 */
+	0, 0, 1, 1, 0, 0, 2, 2, 2, 0, /* 10-19 */
+	0, 0, 0, 0, 3, 3, 3, 0, 0, 0, /* 20-29 */
+	0, 0, 0, 4, 0, 4, 4, 0, 0, 0, /* 30-39 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 40-49 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0  /* 50-59 */
+};
+/* SBS */
+static unsigned char obsfreqs_sbs[] = {
+	/* 1:L1, 2:L5 */
+	0, 1, 0, 0, 0, 0, 0, 0, 0, 0, /*  0- 9 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 10-19 */
+	0, 0, 0, 0, 2, 2, 2, 0, 0, 0, /* 20-29 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 30-39 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 40-49 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0  /* 50-59 */
+};
+/* BDS */
+static unsigned char obsfreqs_cmp[] = {
+	/* 1:B1, 2:B3, 3:B2 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /*  0- 9 */
+	0, 0, 0, 0, 0, 0, 0, 0, 1, 0, /* 10-19 */
+	0, 0, 0, 0, 0, 0, 0, 3, 3, 3, /* 20-29 */
+	0, 0, 0, 2, 0, 0, 0, 0, 0, 0, /* 30-39 */
+	1, 1, 2, 2, 0, 0, 0, 1, 1, 0, /* 40-49 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0  /* 50-59 */
+};
+/* IRN */
+static unsigned char obsfreqs_irn[] = {
+	/* 1:L5, 2:S */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /*  0- 9 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 10-19 */
+	0, 0, 0, 0, 0, 0, 1, 0, 0, 0, /* 20-29 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 30-39 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 1, /* 40-49 */
+	1, 1, 2, 2, 2, 2, 0, 0, 0, 0  /* 50-59 */
+};
+
+static const unsigned int tbl_CRC24Q[] = {
+	0x000000, 0x864CFB, 0x8AD50D, 0x0C99F6, 0x93E6E1, 0x15AA1A, 0x1933EC, 0x9F7F17,
+	0xA18139, 0x27CDC2, 0x2B5434, 0xAD18CF, 0x3267D8, 0xB42B23, 0xB8B2D5, 0x3EFE2E,
+	0xC54E89, 0x430272, 0x4F9B84, 0xC9D77F, 0x56A868, 0xD0E493, 0xDC7D65, 0x5A319E,
+	0x64CFB0, 0xE2834B, 0xEE1ABD, 0x685646, 0xF72951, 0x7165AA, 0x7DFC5C, 0xFBB0A7,
+	0x0CD1E9, 0x8A9D12, 0x8604E4, 0x00481F, 0x9F3708, 0x197BF3, 0x15E205, 0x93AEFE,
+	0xAD50D0, 0x2B1C2B, 0x2785DD, 0xA1C926, 0x3EB631, 0xB8FACA, 0xB4633C, 0x322FC7,
+	0xC99F60, 0x4FD39B, 0x434A6D, 0xC50696, 0x5A7981, 0xDC357A, 0xD0AC8C, 0x56E077,
+	0x681E59, 0xEE52A2, 0xE2CB54, 0x6487AF, 0xFBF8B8, 0x7DB443, 0x712DB5, 0xF7614E,
+	0x19A3D2, 0x9FEF29, 0x9376DF, 0x153A24, 0x8A4533, 0x0C09C8, 0x00903E, 0x86DCC5,
+	0xB822EB, 0x3E6E10, 0x32F7E6, 0xB4BB1D, 0x2BC40A, 0xAD88F1, 0xA11107, 0x275DFC,
+	0xDCED5B, 0x5AA1A0, 0x563856, 0xD074AD, 0x4F0BBA, 0xC94741, 0xC5DEB7, 0x43924C,
+	0x7D6C62, 0xFB2099, 0xF7B96F, 0x71F594, 0xEE8A83, 0x68C678, 0x645F8E, 0xE21375,
+	0x15723B, 0x933EC0, 0x9FA736, 0x19EBCD, 0x8694DA, 0x00D821, 0x0C41D7, 0x8A0D2C,
+	0xB4F302, 0x32BFF9, 0x3E260F, 0xB86AF4, 0x2715E3, 0xA15918, 0xADC0EE, 0x2B8C15,
+	0xD03CB2, 0x567049, 0x5AE9BF, 0xDCA544, 0x43DA53, 0xC596A8, 0xC90F5E, 0x4F43A5,
+	0x71BD8B, 0xF7F170, 0xFB6886, 0x7D247D, 0xE25B6A, 0x641791, 0x688E67, 0xEEC29C,
+	0x3347A4, 0xB50B5F, 0xB992A9, 0x3FDE52, 0xA0A145, 0x26EDBE, 0x2A7448, 0xAC38B3,
+	0x92C69D, 0x148A66, 0x181390, 0x9E5F6B, 0x01207C, 0x876C87, 0x8BF571, 0x0DB98A,
+	0xF6092D, 0x7045D6, 0x7CDC20, 0xFA90DB, 0x65EFCC, 0xE3A337, 0xEF3AC1, 0x69763A,
+	0x578814, 0xD1C4EF, 0xDD5D19, 0x5B11E2, 0xC46EF5, 0x42220E, 0x4EBBF8, 0xC8F703,
+	0x3F964D, 0xB9DAB6, 0xB54340, 0x330FBB, 0xAC70AC, 0x2A3C57, 0x26A5A1, 0xA0E95A,
+	0x9E1774, 0x185B8F, 0x14C279, 0x928E82, 0x0DF195, 0x8BBD6E, 0x872498, 0x016863,
+	0xFAD8C4, 0x7C943F, 0x700DC9, 0xF64132, 0x693E25, 0xEF72DE, 0xE3EB28, 0x65A7D3,
+	0x5B59FD, 0xDD1506, 0xD18CF0, 0x57C00B, 0xC8BF1C, 0x4EF3E7, 0x426A11, 0xC426EA,
+	0x2AE476, 0xACA88D, 0xA0317B, 0x267D80, 0xB90297, 0x3F4E6C, 0x33D79A, 0xB59B61,
+	0x8B654F, 0x0D29B4, 0x01B042, 0x87FCB9, 0x1883AE, 0x9ECF55, 0x9256A3, 0x141A58,
+	0xEFAAFF, 0x69E604, 0x657FF2, 0xE33309, 0x7C4C1E, 0xFA00E5, 0xF69913, 0x70D5E8,
+	0x4E2BC6, 0xC8673D, 0xC4FECB, 0x42B230, 0xDDCD27, 0x5B81DC, 0x57182A, 0xD154D1,
+	0x26359F, 0xA07964, 0xACE092, 0x2AAC69, 0xB5D37E, 0x339F85, 0x3F0673, 0xB94A88,
+	0x87B4A6, 0x01F85D, 0x0D61AB, 0x8B2D50, 0x145247, 0x921EBC, 0x9E874A, 0x18CBB1,
+	0xE37B16, 0x6537ED, 0x69AE1B, 0xEFE2E0, 0x709DF7, 0xF6D10C, 0xFA48FA, 0x7C0401,
+	0x42FA2F, 0xC4B6D4, 0xC82F22, 0x4E63D9, 0xD11CCE, 0x575035, 0x5BC9C3, 0xDD8538 
+};
+
+static char codepris[7][MAXFREQ][16] = {
+	/* code priority table */
+
+	{"CPYWMNSL", "PYWCMNDSLX", "IQX", "", "", "", ""}, /* GPS 1:L1, 2:L2, 3:L5 */
+	{"PC", "PC", "IQX", "", "", "", ""},               /* GLO 1:G1, 2:G2, 3:G3 */
+	{"ABXZ", "IQX", "IQX", "IQX", "ABCXZ", "", ""},    /* GAL 1:E1, 2:E5b, 3:E5a, 4:E5(a+b), 5:E6 */
+	{"CSLXZ", "SLX", "IQX", "SLX", "", "", ""},        /* QZS 1:L1, 2:L2, 3:L5, 4:LEX */
+	{"C", "IQX", "", "", "", "", ""},                  /* SBS 1:L1, 2:L5 */
+	{"IQX", "IQX", "IQX", "", "", "", ""},             /* BDS 1:B1, 2:B3, 3:B2 */
+	{"ABCX", "ABCX", "", "", "", "", ""}               /* IRN 1:L5, 2:S */
+};
+
+const double lam_carr[] = {/* carrier wave length (m) */
+	CLIGHT / FREQ1, CLIGHT / FREQ2, CLIGHT / FREQ5, CLIGHT / FREQ6, 
+	CLIGHT / FREQ7, CLIGHT / FREQ8, CLIGHT / FREQ9 
+};
 
 #ifdef INT_SEC_SEND
 TIME_S sensor_time_s;
@@ -77,10 +216,6 @@ extern int get_week_number()
 {
     return default_week_number;
 }
-
-const static double gpst0[] = {1980, 1, 6, 0, 0, 0}; /* gps time reference */
-//const static double gst0 []={1999,8,22,0,0,0}; /* galileo system time reference */
-const static double bdt0[] = {2006, 1, 1, 0, 0, 0}; /* beidou time reference */
 
 /* add time --------------------------------------------------------------------
 * add time to gtime_t struct
@@ -139,8 +274,9 @@ extern gtime_t epoch2time(const double *ep)
 extern void time2epoch(gtime_t t, double *ep)
 {
     const int mday[] = {/* # of days in a month */
-                        31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
-                        31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+		31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+		31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
+	};
     int days, sec, mon, day;
 
     /* leap year if year%4==0 in 1901-2099 */
@@ -174,6 +310,7 @@ extern gtime_t bdt2time(int week, double sec)
         sec = 0.0;
     t.time += SECONDS_IN_WEEK * week + (int)sec;
     t.sec = sec - (int)sec;
+
     return t;
 }
 /* time to beidouo time (bdt) --------------------------------------------------
@@ -207,6 +344,7 @@ extern double time2gpst(gtime_t t, int *week)
 
     if (week)
         *week = w;
+
     return (double)(sec - w * SECONDS_IN_WEEK) + t.sec;
 }
 
@@ -246,6 +384,7 @@ extern gtime_t gpst2time(int week, double sec)
         sec = 0.0;
     t.time += SECONDS_IN_WEEK * week + (int)sec;
     t.sec = sec - (int)sec;
+
     return t;
 }
 
@@ -334,7 +473,7 @@ extern gtime_t timeget()
 }
 
 /* adjust weekly rollover of gps time ----------------------------------------*/
-void adjweek(gtime_t *time, double tow)
+extern void adjweek(gtime_t *time, double tow)
 {
     double tow_p;
     int week;
@@ -362,21 +501,25 @@ void adjweek(gtime_t *time, double tow)
 static int adjgpsweek(gtime_t *time, int week)
 {
     int w;
+
     if (time->time == 0)
         *time = utc2gpst(timeget());
     (void)time2gpst(*time, &w);
     //if (w<1560) w=1560; /* use 2009/12/1 if time is earlier than 2009/12/1 */
+
     return week + (w - week + 512) / 1024 * 1024;
 }
 /* adjust weekly rollover of bdt time ----------------------------------------*/
 static int adjbdtweek(gtime_t *time, int week)
 {
     int w;
+
     if (time->time == 0)
         *time = utc2gpst(timeget());
     (void)time2bdt(gpst2bdt(*time), &w);
     if (w < 1)
         w = 1; /* use 2006/1/1 if time is earlier than 2006/1/1 */
+
     return week + (w - week + 512) / 1024 * 1024;
 }
 /* adjust daily rollover of glonass time -------------------------------------*/
@@ -437,40 +580,6 @@ extern void CloseLogFile()
 }
 #endif
 
-static const unsigned int tbl_CRC24Q[] = {
-    0x000000, 0x864CFB, 0x8AD50D, 0x0C99F6, 0x93E6E1, 0x15AA1A, 0x1933EC, 0x9F7F17,
-    0xA18139, 0x27CDC2, 0x2B5434, 0xAD18CF, 0x3267D8, 0xB42B23, 0xB8B2D5, 0x3EFE2E,
-    0xC54E89, 0x430272, 0x4F9B84, 0xC9D77F, 0x56A868, 0xD0E493, 0xDC7D65, 0x5A319E,
-    0x64CFB0, 0xE2834B, 0xEE1ABD, 0x685646, 0xF72951, 0x7165AA, 0x7DFC5C, 0xFBB0A7,
-    0x0CD1E9, 0x8A9D12, 0x8604E4, 0x00481F, 0x9F3708, 0x197BF3, 0x15E205, 0x93AEFE,
-    0xAD50D0, 0x2B1C2B, 0x2785DD, 0xA1C926, 0x3EB631, 0xB8FACA, 0xB4633C, 0x322FC7,
-    0xC99F60, 0x4FD39B, 0x434A6D, 0xC50696, 0x5A7981, 0xDC357A, 0xD0AC8C, 0x56E077,
-    0x681E59, 0xEE52A2, 0xE2CB54, 0x6487AF, 0xFBF8B8, 0x7DB443, 0x712DB5, 0xF7614E,
-    0x19A3D2, 0x9FEF29, 0x9376DF, 0x153A24, 0x8A4533, 0x0C09C8, 0x00903E, 0x86DCC5,
-    0xB822EB, 0x3E6E10, 0x32F7E6, 0xB4BB1D, 0x2BC40A, 0xAD88F1, 0xA11107, 0x275DFC,
-    0xDCED5B, 0x5AA1A0, 0x563856, 0xD074AD, 0x4F0BBA, 0xC94741, 0xC5DEB7, 0x43924C,
-    0x7D6C62, 0xFB2099, 0xF7B96F, 0x71F594, 0xEE8A83, 0x68C678, 0x645F8E, 0xE21375,
-    0x15723B, 0x933EC0, 0x9FA736, 0x19EBCD, 0x8694DA, 0x00D821, 0x0C41D7, 0x8A0D2C,
-    0xB4F302, 0x32BFF9, 0x3E260F, 0xB86AF4, 0x2715E3, 0xA15918, 0xADC0EE, 0x2B8C15,
-    0xD03CB2, 0x567049, 0x5AE9BF, 0xDCA544, 0x43DA53, 0xC596A8, 0xC90F5E, 0x4F43A5,
-    0x71BD8B, 0xF7F170, 0xFB6886, 0x7D247D, 0xE25B6A, 0x641791, 0x688E67, 0xEEC29C,
-    0x3347A4, 0xB50B5F, 0xB992A9, 0x3FDE52, 0xA0A145, 0x26EDBE, 0x2A7448, 0xAC38B3,
-    0x92C69D, 0x148A66, 0x181390, 0x9E5F6B, 0x01207C, 0x876C87, 0x8BF571, 0x0DB98A,
-    0xF6092D, 0x7045D6, 0x7CDC20, 0xFA90DB, 0x65EFCC, 0xE3A337, 0xEF3AC1, 0x69763A,
-    0x578814, 0xD1C4EF, 0xDD5D19, 0x5B11E2, 0xC46EF5, 0x42220E, 0x4EBBF8, 0xC8F703,
-    0x3F964D, 0xB9DAB6, 0xB54340, 0x330FBB, 0xAC70AC, 0x2A3C57, 0x26A5A1, 0xA0E95A,
-    0x9E1774, 0x185B8F, 0x14C279, 0x928E82, 0x0DF195, 0x8BBD6E, 0x872498, 0x016863,
-    0xFAD8C4, 0x7C943F, 0x700DC9, 0xF64132, 0x693E25, 0xEF72DE, 0xE3EB28, 0x65A7D3,
-    0x5B59FD, 0xDD1506, 0xD18CF0, 0x57C00B, 0xC8BF1C, 0x4EF3E7, 0x426A11, 0xC426EA,
-    0x2AE476, 0xACA88D, 0xA0317B, 0x267D80, 0xB90297, 0x3F4E6C, 0x33D79A, 0xB59B61,
-    0x8B654F, 0x0D29B4, 0x01B042, 0x87FCB9, 0x1883AE, 0x9ECF55, 0x9256A3, 0x141A58,
-    0xEFAAFF, 0x69E604, 0x657FF2, 0xE33309, 0x7C4C1E, 0xFA00E5, 0xF69913, 0x70D5E8,
-    0x4E2BC6, 0xC8673D, 0xC4FECB, 0x42B230, 0xDDCD27, 0x5B81DC, 0x57182A, 0xD154D1,
-    0x26359F, 0xA07964, 0xACE092, 0x2AAC69, 0xB5D37E, 0x339F85, 0x3F0673, 0xB94A88,
-    0x87B4A6, 0x01F85D, 0x0D61AB, 0x8B2D50, 0x145247, 0x921EBC, 0x9E874A, 0x18CBB1,
-    0xE37B16, 0x6537ED, 0x69AE1B, 0xEFE2E0, 0x709DF7, 0xF6D10C, 0xFA48FA, 0x7C0401,
-    0x42FA2F, 0xC4B6D4, 0xC82F22, 0x4E63D9, 0xD11CCE, 0x575035, 0x5BC9C3, 0xDD8538};
-
 /* crc-24q parity --------------------------------------------------------------
 * compute crc-24q parity for sbas, rtcm3
 * args   : unsigned char *buff I data
@@ -487,11 +596,9 @@ unsigned int rtk_crc24q(const unsigned char *buff, int len)
 
     for (i = 0; i < len; i++)
         crc = ((crc << 8) & 0xFFFFFF) ^ tbl_CRC24Q[(crc >> 16) ^ buff[i]];
+
     return crc;
 }
-
-#define RTCM2PREAMB 0x66 /* rtcm ver.2 frame preamble */
-#define RTCM3PREAMB 0xD3 /* rtcm ver.3 frame preamble */
 
 /* extract unsigned/signed bits ------------------------------------------------
 * extract unsigned/signed bits from byte data
@@ -504,15 +611,19 @@ unsigned int rtcm_getbitu(const unsigned char *buff, int pos, int len)
 {
     unsigned int bits = 0;
     int i;
+
     for (i = pos; i < pos + len; i++)
         bits = (bits << 1) + ((buff[i / 8] >> (7 - i % 8)) & 1u);
+
     return bits;
 }
 int rtcm_getbits(const unsigned char *buff, int pos, int len)
 {
     unsigned int bits = rtcm_getbitu(buff, pos, len);
+
     if (len <= 0 || 32 <= len || !(bits & (1u << (len - 1))))
         return (int)bits;
+
     return (int)(bits | (~0u << len)); /* extend sign */
 }
 /* set unsigned/signed bits ----------------------------------------------------
@@ -527,6 +638,7 @@ void setbitu(unsigned char *buff, int pos, int len, unsigned int data)
 {
     unsigned int mask = 1u << (len - 1);
     int i;
+
     if (len <= 0 || 32 < len)
         return;
     for (i = pos; i < pos + len; i++, mask >>= 1)
@@ -550,6 +662,7 @@ void setbits(unsigned char *buff, int pos, int len, int data)
 static double getbitg(const unsigned char *buff, int pos, int len)
 {
     double value = rtcm_getbitu(buff, pos + 1, len - 1);
+
     return rtcm_getbitu(buff, pos, 1) ? -value : value;
 }
 /* get signed 38bit field ----------------------------------------------------*/
@@ -557,116 +670,6 @@ static double rtcm_getbits_38(const unsigned char *buff, int pos)
 {
     return (double)rtcm_getbits(buff, pos, 32) * 64.0 + rtcm_getbitu(buff, pos + 32, 6);
 }
-
-typedef struct
-{                               /* multi-signal-message header type */
-    unsigned char iod;          /* issue of data station */
-    unsigned char time_s;       /* cumulative session transmitting time */
-    unsigned char clk_str;      /* clock steering indicator */
-    unsigned char clk_ext;      /* external clock indicator */
-    unsigned char smooth;       /* divergence free smoothing indicator */
-    unsigned char tint_s;       /* soothing interval */
-    unsigned char nsat, nsig;   /* number of satellites/signals */
-    unsigned char sats[64];     /* satellites */
-    unsigned char sigs[32];     /* signals */
-    unsigned char cellmask[64]; /* cell mask */
-} msm_h_t;
-
-#define ROUND(x) ((int)floor((x) + 0.5))
-#define ROUND_U(x) ((unsigned int)floor((x) + 0.5))
-#define MIN(x, y) ((x) < (y) ? (x) : (y))
-
-/* ssr update intervals ------------------------------------------------------*/
-static const double ssrudint[16] = {
-    1, 2, 5, 10, 15, 30, 60, 120, 240, 300, 600, 900, 1800, 3600, 7200, 10800};
-
-#define PRUNIT_GPS 299792.458     /* rtcm ver.3 unit of gps pseudorange (m) */
-#define PRUNIT_GLO 599584.916     /* rtcm ver.3 unit of glonass pseudorange (m) */
-#define RANGE_MS (CLIGHT * 0.001) /* range in 1 ms */
-
-#define P2_10 0.0009765625          /* 2^-10 */
-#define P2_34 5.820766091346740E-11 /* 2^-34 */
-#define P2_46 1.421085471520200E-14 /* 2^-46 */
-#define P2_59 1.734723475976810E-18 /* 2^-59 */
-#define P2_66 1.355252715606880E-20 /* 2^-66 */
-
-#define P2_5 0.03125                /* 2^-5 */
-#define P2_6 0.015625               /* 2^-6 */
-#define P2_11 4.882812500000000E-04 /* 2^-11 */
-#define P2_15 3.051757812500000E-05 /* 2^-15 */
-#define P2_17 7.629394531250000E-06 /* 2^-17 */
-#define P2_19 1.907348632812500E-06 /* 2^-19 */
-#define P2_20 9.536743164062500E-07 /* 2^-20 */
-#define P2_21 4.768371582031250E-07 /* 2^-21 */
-#define P2_23 1.192092895507810E-07 /* 2^-23 */
-#define P2_24 5.960464477539063E-08 /* 2^-24 */
-#define P2_27 7.450580596923828E-09 /* 2^-27 */
-#define P2_29 1.862645149230957E-09 /* 2^-29 */
-#define P2_30 9.313225746154785E-10 /* 2^-30 */
-#define P2_31 4.656612873077393E-10 /* 2^-31 */
-#define P2_32 2.328306436538696E-10 /* 2^-32 */
-#define P2_33 1.164153218269348E-10 /* 2^-33 */
-#define P2_35 2.910383045673370E-11 /* 2^-35 */
-#define P2_38 3.637978807091710E-12 /* 2^-38 */
-#define P2_39 1.818989403545856E-12 /* 2^-39 */
-#define P2_40 9.094947017729280E-13 /* 2^-40 */
-#define P2_43 1.136868377216160E-13 /* 2^-43 */
-#define P2_48 3.552713678800501E-15 /* 2^-48 */
-#define P2_50 8.881784197001252E-16 /* 2^-50 */
-#define P2_55 2.775557561562891E-17 /* 2^-55 */
-
-/* msm signal id table -------------------------------------------------------*/
-const char *rtcm_msm_sig_gps[32] = {
-    /* GPS: ref [13] table 3.5-87, ref [14][15] table 3.5-91 */
-    "", "1C", "1P", "1W", "1Y", "1M", "", "2C", "2P", "2W", "2Y", "2M", /*  1-12 */
-    "", "", "2S", "2L", "2X", "", "", "", "", "5I", "5Q", "5X",         /* 13-24 */
-    "", "", "", "", "", "1S", "1L", "1X"                                /* 25-32 */
-};
-const char *rtcm_msm_sig_glo[32] = {
-    /* GLONASS: ref [13] table 3.5-93, ref [14][15] table 3.5-97 */
-    "", "1C", "1P", "", "", "", "", "2C", "2P", "", "3I", "3Q",
-    "3X", "", "", "", "", "", "", "", "", "", "", "",
-    "", "", "", "", "", "", "", ""};
-const char *msm_sig_gal[32] = {
-    /* Galileo: ref [15] table 3.5-100 */
-    "", "1C", "1A", "1B", "1X", "1Z", "", "6C", "6A", "6B", "6X", "6Z",
-    "", "7I", "7Q", "7X", "", "8I", "8Q", "8X", "", "5I", "5Q", "5X",
-    "", "", "", "", "", "", "", ""};
-const char *msm_sig_qzs[32] = {
-    /* QZSS: ref [15] table 3.5-103 */
-    "", "1C", "", "", "", "", "", "", "6S", "6L", "6X", "",
-    "", "", "2S", "2L", "2X", "", "", "", "", "5I", "5Q", "5X",
-    "", "", "", "", "", "1S", "1L", "1X"};
-const char *msm_sig_sbs[32] = {
-    /* SBAS: ref [13] table 3.5-T+005 */
-    "", "1C", "", "", "", "", "", "", "", "", "", "",
-    "", "", "", "", "", "", "", "", "", "5I", "5Q", "5X",
-    "", "", "", "", "", "", "", ""};
-const char *msm_sig_cmp[32] = {
-    /* BeiDou: ref [15] table 3.5-106 */
-    "", "1I", "1Q", "1X", "", "", "", "6I", "6Q", "6X", "", "",
-    "", "7I", "7Q", "7X", "", "", "", "", "", "", "", "",
-    "", "", "", "", "", "", "", ""};
-
-/* ssr signal and tracking mode ids ------------------------------------------*/
-static const int codes_gps[] = {
-    CODE_L1C, CODE_L1P, CODE_L1W, CODE_L1Y, CODE_L1M, CODE_L2C, CODE_L2D, CODE_L2S,
-    CODE_L2L, CODE_L2X, CODE_L2P, CODE_L2W, CODE_L2Y, CODE_L2M, CODE_L5I, CODE_L5Q,
-    CODE_L5X};
-static const int codes_glo[] = {
-    CODE_L1C, CODE_L1P, CODE_L2C, CODE_L2P};
-static const int codes_gal[] = {
-    CODE_L1A, CODE_L1B, CODE_L1C, CODE_L1X, CODE_L1Z, CODE_L5I, CODE_L5Q, CODE_L5X,
-    CODE_L7I, CODE_L7Q, CODE_L7X, CODE_L8I, CODE_L8Q, CODE_L8X, CODE_L6A, CODE_L6B,
-    CODE_L6C, CODE_L6X, CODE_L6Z};
-static const int codes_qzs[] = {
-    CODE_L1C, CODE_L1S, CODE_L1L, CODE_L2S, CODE_L2L, CODE_L2X, CODE_L5I, CODE_L5Q,
-    CODE_L5X, CODE_L6S, CODE_L6L, CODE_L6X, CODE_L1X};
-static const int codes_bds[] = {
-    CODE_L1I, CODE_L1Q, CODE_L1X, CODE_L7I, CODE_L7Q, CODE_L7X, CODE_L6I, CODE_L6Q,
-    CODE_L6X};
-static const int codes_sbs[] = {
-    CODE_L1C, CODE_L5I, CODE_L5Q, CODE_L5X};
 
 /* get observation data index ------------------------------------------------*/
 static int obsindex(obs_t *obs, gtime_t time, int sat)
@@ -711,6 +714,7 @@ static int obsindex(obs_t *obs, gtime_t time, int sat)
 		memset(obs->data + i, 0, sizeof(obsd_t));
 		obs->data[i].sat = (unsigned char)sat;
 	}
+
     return i;
 }
 /* test station id consistency -----------------------------------------------*/
@@ -731,105 +735,9 @@ static int test_staid(obs_t *obs, int staid)
         obs->staid = 0;
         return 0;
     }
+
     return 1;
 }
-
-
-static char *obscodes[] = {
-    /* observation code strings */
-
-    "", "1C", "1P", "1W", "1Y", "1M", "1N", "1S", "1L", "1E",   /*  0- 9 */
-    "1A", "1B", "1X", "1Z", "2C", "2D", "2S", "2L", "2X", "2P", /* 10-19 */
-    "2W", "2Y", "2M", "2N", "5I", "5Q", "5X", "7I", "7Q", "7X", /* 20-29 */
-    "6A", "6B", "6C", "6X", "6Z", "6S", "6L", "8L", "8Q", "8X", /* 30-39 */
-    "2I", "2Q", "6I", "6Q", "3I", "3Q", "3X", "1I", "1Q", "5A", /* 40-49 */
-    "5B", "5C", "9A", "9B", "9C", "9X", "", "", "", ""          /* 50-59 */
-};
-/* GPS  */
-static unsigned char obsfreqs_gps[] = {
-    /* 1:L1, 2:L2, 3:L5 */
-    0, 1, 1, 1, 1, 1, 1, 1, 1, 1, /*  0- 9 */
-    0, 0, 1, 1, 2, 2, 2, 2, 2, 2, /* 10-19 */
-    2, 2, 2, 2, 3, 3, 3, 0, 0, 0, /* 20-29 */
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 30-39 */
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 40-49 */
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0  /* 50-59 */
-};
-/* GLO */
-static unsigned char obsfreqs_glo[] = {
-    /* 1:G1, 2:G2, 3:G3 */
-    0, 1, 1, 0, 0, 0, 0, 0, 0, 0, /*  0- 9 */
-    0, 0, 0, 0, 2, 0, 0, 0, 0, 2, /* 10-19 */
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 20-29 */
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 30-39 */
-    0, 0, 0, 0, 3, 3, 3, 0, 0, 0, /* 40-49 */
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0  /* 50-59 */
-};
-/* GAL */
-static unsigned char obsfreqs_gal[] = {
-    /* 1:E1, 2:E5b, 3:E5a, 4:E5(a+b), 5:E6 */
-    0, 1, 0, 0, 0, 0, 0, 0, 0, 0, /*  0- 9 */
-    1, 1, 1, 1, 0, 0, 0, 0, 0, 0, /* 10-19 */
-    0, 0, 0, 0, 3, 3, 3, 2, 2, 2, /* 20-29 */
-    5, 5, 5, 5, 5, 0, 0, 4, 4, 4, /* 30-39 */
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 40-49 */
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0  /* 50-59 */
-};
-/* QZSS */
-static unsigned char obsfreqs_qzs[] = {
-    /* 1:L1, 2:L2, 3:L5, 4:LEX, 5:S */
-    0, 1, 0, 0, 0, 0, 0, 1, 1, 0, /*  0- 9 */
-    0, 0, 1, 1, 0, 0, 2, 2, 2, 0, /* 10-19 */
-    0, 0, 0, 0, 3, 3, 3, 0, 0, 0, /* 20-29 */
-    0, 0, 0, 4, 0, 4, 4, 0, 0, 0, /* 30-39 */
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 40-49 */
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0  /* 50-59 */
-};
-/* SBS */
-static unsigned char obsfreqs_sbs[] = {
-    /* 1:L1, 2:L5 */
-    0, 1, 0, 0, 0, 0, 0, 0, 0, 0, /*  0- 9 */
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 10-19 */
-    0, 0, 0, 0, 2, 2, 2, 0, 0, 0, /* 20-29 */
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 30-39 */
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 40-49 */
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0  /* 50-59 */
-};
-/* BDS */
-static unsigned char obsfreqs_cmp[] = {
-    /* 1:B1, 2:B3, 3:B2 */
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /*  0- 9 */
-    0, 0, 0, 0, 0, 0, 0, 0, 1, 0, /* 10-19 */
-    0, 0, 0, 0, 0, 0, 0, 3, 3, 3, /* 20-29 */
-    0, 0, 0, 2, 0, 0, 0, 0, 0, 0, /* 30-39 */
-    1, 1, 2, 2, 0, 0, 0, 1, 1, 0, /* 40-49 */
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0  /* 50-59 */
-};
-/* IRN */
-static unsigned char obsfreqs_irn[] = {
-    /* 1:L5, 2:S */
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /*  0- 9 */
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 10-19 */
-    0, 0, 0, 0, 0, 0, 1, 0, 0, 0, /* 20-29 */
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 30-39 */
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 1, /* 40-49 */
-    1, 1, 2, 2, 2, 2, 0, 0, 0, 0  /* 50-59 */
-};
-
-static char codepris[7][MAXFREQ][16] = {
-    /* code priority table */
-
-    {"CPYWMNSL", "PYWCMNDSLX", "IQX", "", "", "", ""}, /* GPS 1:L1, 2:L2, 3:L5 */
-    {"PC", "PC", "IQX", "", "", "", ""},               /* GLO 1:G1, 2:G2, 3:G3 */
-    {"ABXZ", "IQX", "IQX", "IQX", "ABCXZ", "", ""},    /* GAL 1:E1, 2:E5b, 3:E5a, 4:E5(a+b), 5:E6 */
-    {"CSLXZ", "SLX", "IQX", "SLX", "", "", ""},        /* QZS 1:L1, 2:L2, 3:L5, 4:LEX */
-    {"C", "IQX", "", "", "", "", ""},                  /* SBS 1:L1, 2:L5 */
-    {"IQX", "IQX", "IQX", "", "", "", ""},             /* BDS 1:B1, 2:B3, 3:B2 */
-    {"ABCX", "ABCX", "", "", "", "", ""}               /* IRN 1:L5, 2:S */
-};
-
-const double lam_carr[] = {/* carrier wave length (m) */
-                           CLIGHT / FREQ1, CLIGHT / FREQ2, CLIGHT / FREQ5, CLIGHT / FREQ6, CLIGHT / FREQ7, CLIGHT / FREQ8, CLIGHT / FREQ9};
 
 /* satellite system+prn/slot number to satellite number ------------------------
 * convert satellite system+prn/slot number to satellite number
@@ -837,10 +745,11 @@ const double lam_carr[] = {/* carrier wave length (m) */
 *          int    prn       I   satellite prn/slot number
 * return : satellite number (0:error)
 *-----------------------------------------------------------------------------*/
-int satno(int sys, int prn)
+extern int satno(int sys, int prn)
 {
     if (prn <= 0)
         return 0;
+
     switch (sys)
     {
     case _SYS_GPS_:
@@ -872,6 +781,7 @@ int satno(int sys, int prn)
             return 0;
         return NSATGPS + NSATGLO + NSATGAL + NSATQZS + NSATCMP + NSATLEO + prn - MINPRNSBS + 1;
     }
+
     return 0;
 }
 /* satellite number to satellite system ----------------------------------------
@@ -880,9 +790,10 @@ int satno(int sys, int prn)
 *          int    *prn      IO  satellite prn/slot number (NULL: no output)
 * return : satellite system (SYS_GPS,SYS_GLO,...)
 *-----------------------------------------------------------------------------*/
-int satsys(int sat, int *prn)
+extern int satsys(int sat, int *prn)
 {
     int sys = _SYS_NONE_;
+
     if (sat <= 0 || MAXSAT < sat)
         sat = 0;
     else if (sat <= NSATGPS)
@@ -924,12 +835,14 @@ int satsys(int sat, int *prn)
         sat = 0;
     if (prn)
         *prn = sat;
+
     return sys;
 }
 
-char satid(int sat, int *prn)
+extern char satid(int sat, int *prn)
 {
     char sys = ' ';
+
     if (sat <= 0 || MAXSAT < sat)
         sat = 0;
     else if (sat <= NSATGPS)
@@ -969,15 +882,18 @@ char satid(int sat, int *prn)
     }
     else
         sat = 0;
+
     if (prn)
         *prn = sat;
+
     return sys;
 }
 
 /* only use GPS, GLO, GAL, BDS */
-int satidx(int sat, int *prn)
+extern int satidx(int sat, int *prn)
 {
     int sys = -1;
+
     if (sat <= 0 || MAXSAT < sat)
         sat = 0;
     else if (sat <= NSATGPS)
@@ -1022,9 +938,10 @@ int satidx(int sat, int *prn)
     return sys;
 }
 
-char sys2char(int sys)
+extern char sys2char(int sys)
 {
     int s_char = ' ';
+
     if (sys == _SYS_GPS_)
         s_char = 'G';
     else if (sys == _SYS_GLO_)
@@ -1039,6 +956,7 @@ char sys2char(int sys)
         s_char = 'L';
     else if (sys == _SYS_SBS_)
         s_char = 'S';
+
     return s_char;
 }
 
@@ -1111,6 +1029,7 @@ extern double satwavelen(int sat, int frq)
         else if (frq == 2)
             return CLIGHT / FREQ5; /* L5 */
     }
+
     return 0.0;
 }
 
@@ -1125,8 +1044,10 @@ extern double satwavelen(int sat, int frq)
 extern unsigned char obs2code(int sys, const char *obs, int *freq)
 {
     int i;
+
     if (freq)
         *freq = 0;
+
     for (i = 1; *obscodes[i]; i++)
     {
         if (strcmp(obscodes[i], obs))
@@ -1150,6 +1071,7 @@ extern unsigned char obs2code(int sys, const char *obs, int *freq)
         }
         return (unsigned char)i;
     }
+
     return CODE_NONE;
 }
 /* obs code to obs code string -------------------------------------------------
@@ -1165,8 +1087,10 @@ extern char *code2obs(int sys, unsigned char code, int *freq)
 {
     if (freq)
         *freq = 0;
+
     if (code <= CODE_NONE || MAXCODE < code)
         return "";
+
     if (freq)
     {
         if (sys == _SYS_GPS_)
@@ -1184,6 +1108,7 @@ extern char *code2obs(int sys, unsigned char code, int *freq)
         else if (sys == _SYS_IRN_)
             *freq = obsfreqs_irn[code];
     }
+
     return obscodes[code];
 }
 /* set code priority -----------------------------------------------------------
@@ -1261,6 +1186,7 @@ extern int getcodepri(int sys, unsigned char code, const char *opt)
     default:
         return 0;
     }
+
     obs = code2obs(sys, code, &j);
 
     /* parse code options */
@@ -1270,6 +1196,7 @@ extern int getcodepri(int sys, unsigned char code, const char *opt)
             continue;
         return str[1] == obs[1] ? 15 : 0;
     }
+
     /* search code priority */
     return (p = strchr(codepris[i][j - 1], obs[1])) ? 14 - (int)(p - codepris[i][j - 1]) : 0;
 }
@@ -1335,10 +1262,10 @@ static double adjcp(rtcm_t *rtcm, int sat, int freq, double cp)
 /* loss-of-lock indicator ----------------------------------------------------*/
 static int lossoflock(rtcm_t *rtcm, int sat, int freq, int lock)
 {
-    /* YYD: need to work more about the LLI, now just turn off to save space */
-	// modified by xuanxuan hu, 12/16/2019
 	int lli = (!lock && !rtcm->lock[sat - 1][freq]) || lock < rtcm->lock[sat - 1][freq];
+
 	rtcm->lock[sat - 1][freq] = (unsigned short)lock;
+
 	return lli;
 }
 /* s/n ratio -----------------------------------------------------------------*/
@@ -1346,7 +1273,166 @@ static unsigned char snratio(double snr)
 {
     return (unsigned char)(snr <= 0.0 || 255.5 <= snr ? 0.0 : snr * 4.0 + 0.5);
 }
+/* add obsd to obs */
+static int add_obs(obsd_t* obsd, obs_t* obs)
+{
+	unsigned int i;
 
+	double tt = timediff(obs->time, obsd->time);
+
+	if (fabs(tt) > 0.01)
+	{
+		/* new epoch, reset the n and obsflag */
+		obs->n = 0;
+		obs->obsflag = 0;
+	}
+	if (obs->n == 0)
+	{
+		/* first obs, set the time tag */
+		obs->time = obsd->time;
+	}
+	for (i = 0; i < obs->n; i++)
+	{
+		if (obs->data[i].sat == obsd->sat)
+			break; /* field already exists */
+	}
+	if (i == obs->n)
+	{
+		/* add new field */
+		if (obs->n < MAXOBS)
+		{
+			obs->data[i] = *obsd;
+			obs->n++;
+		}
+		else
+		{
+			i = -1;
+		}
+	}
+	else
+	{
+		/* duplicated satellites */
+		obs->data[i] = *obsd;
+	}
+
+	return i;
+}
+/* add eph to nav */
+static int add_eph(eph_t* eph, nav_t* nav)
+{
+	int i = 0, ret = 0;
+	int sat = eph->sat;
+	int bestL = -1;
+	double bestT = 0.0;
+
+	if (sat <= 0)
+	{
+		return 0;
+	}
+
+	for (i = 0; i < nav->n; ++i)
+	{
+		if (nav->eph[i].sat == sat)
+		{
+			break;
+		}
+	}
+	if (i < nav->n)
+	{
+		/* replace old */
+		nav->eph[i] = *eph;
+		nav->ephsat = sat;
+	}
+	else if (i == nav->n)
+	{
+		if (i < MAXEPH)
+		{
+			nav->eph[nav->n] = *eph;
+			nav->ephsat = sat;
+			++nav->n;
+			ret = 1;
+		}
+		else
+		{
+			/* remove the oldest one */
+			for (i = 0; i < nav->n; ++i)
+			{
+				double diffT = fabs(timediff(nav->eph[i].toe, eph->toe));
+				if (bestL < 0 || bestT>diffT)
+				{
+					bestL = i;
+					bestT = diffT;
+				}
+			}
+			if (bestL >= 0)
+			{
+				nav->eph[bestL] = *eph;
+				nav->ephsat = sat;
+				ret = 1;
+			}
+		}
+	}
+
+	return ret;
+}
+/* add eph to nav */
+static int add_geph(geph_t* eph, nav_t* nav)
+{
+	int i = 0, ret = 0;
+	int sat = eph->sat;
+	int bestL = -1;
+	double bestT = 0.0;
+
+	if (sat <= 0)
+	{
+		return 0;
+	}
+
+	for (i = 0; i < nav->ng; ++i)
+	{
+		if (nav->geph[i].sat == sat)
+		{
+			break;
+		}
+	}
+	if (i < nav->ng)
+	{
+		/* replace old */
+		nav->geph[i] = *eph;
+		nav->ephsat = sat;
+	}
+	else if (i == nav->ng)
+	{
+		if (i < MAXEPH_R)
+		{
+			nav->geph[nav->ng] = *eph;
+			nav->ephsat = sat;
+			++nav->ng;
+			ret = 1;
+		}
+		else
+		{
+			/* remove the oldest one */
+			for (i = 0; i < nav->ng; ++i)
+			{
+				double diffT = fabs(timediff(nav->geph[i].toe, eph->toe));
+				if (bestL < 0 || bestT>diffT)
+				{
+					bestL = i;
+					bestT = diffT;
+				}
+			}
+			if (bestL >= 0)
+			{
+				nav->geph[bestL] = *eph;
+				nav->ephsat = sat;
+				ret = 1;
+			}
+		}
+	}
+
+	return ret;
+}
 /* decode type 1001-1004 message header --------------------------------------*/
 static int decode_head1001(rtcm_t *rtcm, obs_t *obs, int *sync)
 {
@@ -1535,6 +1621,7 @@ static int decode_type1004(rtcm_t *rtcm, obs_t *obs)
         obs->data[index].code[1] = (unsigned char)L2codes[code2];
     }
     obs->obsflag = !sync;
+
     return sync ? 0 : 1;
 }
 
@@ -1568,6 +1655,7 @@ static int decode_type1005(rtcm_t *rtcm, obs_t *obs)
     {
         obs->pos[j] = rr[j] * 0.0001;
     }
+
     return 5;
 }
 /* decode type 1006: stationary rtk reference station arp with height --------*/
@@ -1603,6 +1691,7 @@ static int decode_type1006(rtcm_t *rtcm, obs_t *obs)
     {
         obs->pos[j] = rr[j] * 0.0001;
     }
+
     return 5;
 }
 /* decode type 1007: antenna descriptor --------------------------------------*/
@@ -1761,15 +1850,18 @@ static int decode_type1010(rtcm_t *rtcm, obs_t *obs)
         obs->data[index].code[0] = code ? CODE_L1P : CODE_L1C;
     }
     obs->obsflag = !sync;
+
     return sync ? 0 : 1;
 }
 /* decode type 1011: L1&L2 glonass rtk observables ---------------------------*/
 static int decode_type1011(rtcm_t *rtcm, obs_t *obs)
 {
     int sync;
+
     if (decode_head1009(rtcm, obs, &sync) < 0)
         return -1;
     obs->obsflag = !sync;
+
     return sync ? 0 : 1;
 }
 /* decode type 1012: extended L1&L2 glonass rtk observables ------------------*/
@@ -2107,6 +2199,7 @@ static int decode_type1029(rtcm_t *rtcm)
         trace(2, "rtcm3 1029 length error: len=%d nchar=%d\n", rtcm->len, nchar);
         return -1;
     }
+
     return 0;
 }
 /* decode type 1030: network rtk residual ------------------------------------*/
@@ -2184,6 +2277,7 @@ static int decode_type1033(rtcm_t *rtcm, obs_t *obs)
         return -1;
 
     trace(3, "rtcm3 1033: ant=%s:%s rec=%s:%s:%s\n", des, sno, rec, ver, rsn);
+
     return 5;
 }
 /* decode type 1034: gps network fkp gradient --------------------------------*/
@@ -2601,6 +2695,39 @@ static int decode_type1042(rtcm_t *rtcm, nav_t *nav)
 
     return 2;
 }
+/* decode type 4001 -------------------------------------------------*/
+static int decode_type4001(rtcm_t *rtcm)
+{
+	double ep[6] = { 0 };
+	int i = 24 + 12;
+	ep[0] = (double)rtcm_getbitu(rtcm->buff, i, 12);
+	i += 12;
+	ep[1] = (double)rtcm_getbitu(rtcm->buff, i, 4);
+	i += 4;
+	ep[2] = (double)rtcm_getbitu(rtcm->buff, i, 6);
+	i += 6;
+	ep[3] = (double)rtcm_getbitu(rtcm->buff, i, 8);
+	i += 8;
+	ep[4] = (double)rtcm_getbitu(rtcm->buff, i, 8);
+	i += 8;
+	ep[5] = (double)rtcm_getbitu(rtcm->buff, i, 8);
+	i += 8;
+
+#ifdef ARM_MCU
+	rtcm->time = epoch2time(ep);
+#endif    
+	// printf("%d %d %d %d %d %d\n", ep[0], ep[1], ep[2], ep[3], ep[4], ep[5]);
+#ifdef INT_SEC_SEND
+	sensor_time_s.year = (uint32_t)(ep[0]);
+	sensor_time_s.month = (uint32_t)(ep[1]);
+	sensor_time_s.date = (uint32_t)(ep[2]);
+	sensor_time_s.hour = (uint32_t)(ep[3]);
+	sensor_time_s.minute = (uint32_t)(ep[4]);
+	sensor_time_s.second = (uint32_t)(ep[5]);
+	sensor_time_s.ms = 0;
+#endif
+	return i;
+}
 
 /* save obs data in msm message ----------------------------------------------*/
 static void save_msm_obs(rtcm_t *rtcm, obs_t *obs, int sys, msm_h_t *h, const double *r,
@@ -2750,9 +2877,8 @@ static void save_msm_obs(rtcm_t *rtcm, obs_t *obs, int sys, msm_h_t *h, const do
                 //obs->data[index].SNR[ind[k]] = (unsigned char)(cnr[j] * 4.0);
                 //obs->data[index].code[ind[k]] = code[k];
 
-				obsd.LLI[ind[k]] = (unsigned char)
-				                                   lossoflock(rtcm, sat, ind[k], lock[j]) +
-				                               (half[j] ? 3 : 0);
+				obsd.LLI[ind[k]] = (unsigned char)lossoflock(rtcm, sat, ind[k], lock[j]) +
+					               (half[j] ? 2 : 0);
 				obsd.SNR[ind[k]] = (unsigned char)(cnr[j] * 4.0);
 				obsd.code[ind[k]] = code[k];
 				add_obs(&obsd, obs);
@@ -2870,9 +2996,11 @@ static int decode_msm0(rtcm_t *rtcm, obs_t *obs, int sys)
 {
     msm_h_t h = {0};
     int i, sync, iod;
+
     if (decode_msm_head(rtcm, obs, sys, &sync, &iod, &h, &i) < 0)
         return -1;
     obs->obsflag = !sync;
+
     return sync ? 0 : 1;
 }
 /* decode msm 4: full pseudorange and phaserange plus cnr --------------------*/
@@ -2948,6 +3076,7 @@ static int decode_msm4(rtcm_t *rtcm, obs_t *obs, int sys)
     save_msm_obs(rtcm, obs, sys, &h, r, pr, cp, NULL, NULL, cnr, lock, NULL, half);
 
     obs->obsflag = !sync;
+
     return sync ? 0 : 1;
 }
 /* decode msm 5: full pseudorange, phaserange, phaserangerate and cnr --------*/
@@ -3046,6 +3175,7 @@ static int decode_msm5(rtcm_t *rtcm, obs_t *obs, int sys)
     save_msm_obs(rtcm, obs, sys, &h, r, pr, cp, rr, rrf, cnr, lock, ex, half);
 
     obs->obsflag = !sync;
+
     return sync ? 0 : 1;
 }
 /* decode msm 6: full pseudorange and phaserange plus cnr (high-res) ---------*/
@@ -3121,6 +3251,7 @@ static int decode_msm6(rtcm_t *rtcm, obs_t *obs, int sys)
     save_msm_obs(rtcm, obs, sys, &h, r, pr, cp, NULL, NULL, cnr, lock, NULL, half);
 
     obs->obsflag = !sync;
+
     return sync ? 0 : 1;
 }
 /* decode msm 7: full pseudorange, phaserange, phaserangerate and cnr (h-res) */
@@ -3219,6 +3350,7 @@ static int decode_msm7(rtcm_t *rtcm, obs_t *obs, int sys)
     save_msm_obs(rtcm, obs, sys, &h, r, pr, cp, rr, rrf, cnr, lock, ex, half);
 
     obs->obsflag = !sync;
+
     return sync ? 0 : 1;
 }
 
@@ -3438,6 +3570,7 @@ static int decode_ssr1(rtcm_t *rtcm, int sys, nav_t *nav, obs_t *obs)
             ++nav->ns;
         }
     }
+
     return sync ? 0 : 10;
 }
 /* decode ssr 2: clock corrections -------------------------------------------*/
@@ -3528,6 +3661,7 @@ static int decode_ssr2(rtcm_t *rtcm, int sys, nav_t *nav, obs_t *obs)
             ++nav->ns;
         }
     }
+
     return sync ? 0 : 10;
 }
 /* decode ssr 3: satellite code biases ---------------------------------------*/
@@ -4205,24 +4339,6 @@ static int decode_ssr7(rtcm_t *rtcm, int sys, nav_t *nav)
 }
 #endif
 
-extern void set_approximate_time(int year, int doy, rtcm_t *rtcm)
-{
-    int totalDay = (year < 1981) ? (0) : (360);
-    int weekNum = 0, i = 0;
-    double weekSec = 0.0;
-    for (int yearIndex = 1981; yearIndex < year; ++yearIndex)
-    {
-        totalDay += 365;
-        if ((yearIndex % 4 == 0 && yearIndex % 100 != 0) || yearIndex % 400 == 0)
-            ++totalDay;
-    }
-    totalDay += doy;
-    weekNum = totalDay / 7;
-    weekSec = (totalDay - weekNum * 7) * 24 * 3600.0;
-    rtcm->time = gpst2time(weekNum, weekSec);
-    return;
-}
-
 /* decode rtcm ver.3 message -------------------------------------------------*/
 int decode_rtcm3(rtcm_t *rtcm, obs_t *obs, nav_t *nav)
 {
@@ -4689,31 +4805,6 @@ extern int input_rtcm3_data(rtcm_t *rtcm, unsigned char data, obs_t *obs, nav_t 
         return 0;
     }
 
-    // if (rtcm->key == '$')
-    // {
-    //     if (rtcm->nbyte == 10)
-    //     {
-    //         if (rtcm->buff[0] == '$')
-    //         {
-    //             if (strncmp(rtcm->buff, "$PSTMTS", 7) && strncmp(rtcm->buff, "$GPGGA", 6) && strncmp(rtcm->buff, "$PSTMTG", 7) && strncmp(rtcm->buff, "$PSTMEPHEM", 10))
-    //             {
-    //                 rtcm->key = 0;
-    //                 rtcm->nbyte = 0;
-    //                 return 0;
-    //             }
-    //         }
-    //     }
-
-    //     if (data == '$' && rtcm->nbyte > 10)
-    //     {
-    //         /* decode NMEA data format */
-    //         ret = decode_nmea(rtcm, obs, nav);
-    //         rtcm->nbyte = 0;
-    //     }
-    //     rtcm->buff[rtcm->nbyte++] = data;
-    //     return ret;
-    // }
-
     /* RTCM decorder */
     rtcm->buff[rtcm->nbyte++] = data;
 
@@ -4732,6 +4823,7 @@ extern int input_rtcm3_data(rtcm_t *rtcm, unsigned char data, obs_t *obs, nav_t 
         trace(2, "rtcm3 parity error: len=%d\n", rtcm->len);
         return 0;
     }
+
     /* decode rtcm3 message */
     return decode_rtcm3(rtcm, obs, nav);
 }
@@ -4744,6 +4836,7 @@ extern int input_rtcm3(unsigned char data, unsigned int stnID, gnss_rtcm_t *gnss
     nav_t *nav = NULL;
     int ret = 0;
     static int obs_flag = 0;
+
     if (stnID < MAXSTN)
     {
         rtcm = gnss->rcv + stnID;
@@ -4771,85 +4864,6 @@ extern int input_rtcm3(unsigned char data, unsigned int stnID, gnss_rtcm_t *gnss
     return ret;
 }
 
-/* transform ecef to geodetic postion ------------------------------------------
-* transform ecef position to geodetic position
-* args   : double *r        I   ecef position {x,y,z} (m)
-*          double *pos      O   geodetic position {lat,lon,h} (rad,m)
-* return : none
-* notes  : WGS84, ellipsoidal height
-*-----------------------------------------------------------------------------*/
-extern void ecef2pos(const double *r, double *pos)
-{
-    double e2 = FE_WGS84 * (2.0 - FE_WGS84), r2 = r[0] * r[0] + r[1] * r[1], z, zk, v = RE_WGS84, sinp;
-
-    for (z = r[2], zk = 0.0; fabs(z - zk) >= 1E-4;)
-    {
-        zk = z;
-        sinp = z / sqrt(r2 + z * z);
-        v = RE_WGS84 / sqrt(1.0 - e2 * sinp * sinp);
-        z = r[2] + v * e2 * sinp;
-    }
-    pos[0] = r2 > 1E-12 ? atan(z / sqrt(r2)) : (r[2] > 0.0 ? PI / 2.0 : -PI / 2.0);
-    pos[1] = r2 > 1E-12 ? atan2(r[1], r[0]) : 0.0;
-    pos[2] = sqrt(r2 + z * z) - v;
-}
-
-/* transform geodetic to ecef position -----------------------------------------
-* transform geodetic position to ecef position
-* args   : double *pos      I   geodetic position {lat,lon,h} (rad,m)
-*          double *r        O   ecef position {x,y,z} (m)
-* return : none
-* notes  : WGS84, ellipsoidal height
-*-----------------------------------------------------------------------------*/
-extern void pos2ecef(const double *pos, double *r)
-{
-    double sinp = sin(pos[0]), cosp = cos(pos[0]), sinl = sin(pos[1]), cosl = cos(pos[1]);
-    double e2 = FE_WGS84 * (2.0 - FE_WGS84), v = RE_WGS84 / sqrt(1.0 - e2 * sinp * sinp);
-
-    r[0] = (v + pos[2]) * cosp * cosl;
-    r[1] = (v + pos[2]) * cosp * sinl;
-    r[2] = (v * (1.0 - e2) + pos[2]) * sinp;
-}
-
-double year;
-double month;
-double date;
-double hour;
-double minute;
-double second;
-
-int decode_type4001(rtcm_t *rtcm)
-{
-    double ep[6] = {0};
-    int i = 24 + 12;
-    ep[0] = (double)rtcm_getbitu(rtcm->buff, i, 12);
-    i += 12;
-    ep[1] = (double)rtcm_getbitu(rtcm->buff, i, 4);
-    i += 4;
-    ep[2] = (double)rtcm_getbitu(rtcm->buff, i, 6);
-    i += 6;
-    ep[3] = (double)rtcm_getbitu(rtcm->buff, i, 8);
-    i += 8;
-    ep[4] = (double)rtcm_getbitu(rtcm->buff, i, 8);
-    i += 8;
-    ep[5] = (double)rtcm_getbitu(rtcm->buff, i, 8);
-    i += 8;
-
-#ifdef ARM_MCU
-    rtcm->time = epoch2time(ep);
-#endif    
-    // printf("%d %d %d %d %d %d\n", ep[0], ep[1], ep[2], ep[3], ep[4], ep[5]);
-#ifdef INT_SEC_SEND
-    sensor_time_s.year = (uint32_t)(ep[0]);
-    sensor_time_s.month = (uint32_t)(ep[1]);
-    sensor_time_s.date = (uint32_t)(ep[2]);
-    sensor_time_s.hour = (uint32_t)(ep[3]);
-    sensor_time_s.minute = (uint32_t)(ep[4]);
-    sensor_time_s.second = (uint32_t)(ep[5]);
-    sensor_time_s.ms = 0;
-#endif
-    return i;
-}
 
 void set_ms(uint32_t ms)
 {
@@ -4865,149 +4879,3 @@ TIME_S *get_time()
 }
 #endif
 
-extern int add_obs(obsd_t* obsd, obs_t* obs)
-{
-	unsigned int i;
-
-	double tt = timediff(obs->time, obsd->time);
-
-	if (fabs(tt) > 0.01)
-	{
-		/* new epoch, reset the n and obsflag */
-		obs->n = 0;
-		obs->obsflag = 0;
-	}
-	if (obs->n == 0)
-	{
-		/* first obs, set the time tag */
-		obs->time = obsd->time;
-	}
-	for (i = 0; i < obs->n; i++)
-	{
-		if (obs->data[i].sat == obsd->sat)
-			break; /* field already exists */
-	}
-	if (i == obs->n)
-	{
-		/* add new field */
-		if (obs->n < MAXOBS)
-		{
-			obs->data[i] = *obsd;
-			obs->n++;
-		}
-		else
-		{
-			i = -1;
-		}
-	}
-	else
-	{
-		/* duplicated satellites */
-		obs->data[i] = *obsd;
-	}
-	return i;
-}
-
-extern int add_eph(eph_t* eph, nav_t* nav)
-{
-	int i = 0, ret = 0;
-	int sat = eph->sat;
-	int bestL = -1;
-	double bestT = 0.0;
-	if (sat <= 0) return 0;
-	for (i = 0; i < nav->n; ++i)
-	{
-		if (nav->eph[i].sat == sat)
-		{
-			break;
-		}
-	}
-	if (i < nav->n)
-	{
-		/* replace old */
-		nav->eph[i] = *eph;
-		nav->ephsat = sat;
-	}
-	else if (i == nav->n)
-	{
-		if (i < MAXEPH)
-		{
-			nav->eph[nav->n] = *eph;
-			nav->ephsat = sat;
-			++nav->n;
-			ret = 1;
-		}
-		else
-		{
-			/* remove the oldest one */
-			for (i = 0; i < nav->n; ++i)
-			{
-				double diffT = fabs(timediff(nav->eph[i].toe, eph->toe));
-				if (bestL < 0 || bestT>diffT)
-				{
-					bestL = i;
-					bestT = diffT;
-				}
-			}
-			if (bestL >= 0)
-			{
-				nav->eph[bestL] = *eph;
-				nav->ephsat = sat;
-				ret = 1;
-			}
-		}
-	}
-	return ret;
-}
-
-extern int add_geph(geph_t* eph, nav_t* nav)
-{
-	int i = 0, ret = 0;
-	int sat = eph->sat;
-	int bestL = -1;
-	double bestT = 0.0;
-	if (sat <= 0) return 0;
-	for (i = 0; i < nav->ng; ++i)
-	{
-		if (nav->geph[i].sat == sat)
-		{
-			break;
-		}
-	}
-	if (i < nav->ng)
-	{
-		/* replace old */
-		nav->geph[i] = *eph;
-		nav->ephsat = sat;
-	}
-	else if (i == nav->ng)
-	{
-		if (i < MAXEPH_R)
-		{
-			nav->geph[nav->ng] = *eph;
-			nav->ephsat = sat;
-			++nav->ng;
-			ret = 1;
-		}
-		else
-		{
-			/* remove the oldest one */
-			for (i = 0; i < nav->ng; ++i)
-			{
-				double diffT = fabs(timediff(nav->geph[i].toe, eph->toe));
-				if (bestL < 0 || bestT>diffT)
-				{
-					bestL = i;
-					bestT = diffT;
-				}
-			}
-			if (bestL >= 0)
-			{
-				nav->geph[bestL] = *eph;
-				nav->ephsat = sat;
-				ret = 1;
-			}
-		}
-	}
-	return ret;
-}

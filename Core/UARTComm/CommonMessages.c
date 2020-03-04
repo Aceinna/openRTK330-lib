@@ -210,21 +210,10 @@ BOOL Fill_s1PacketPayload(uint8_t *payload, uint8_t *payloadLen)
     scaled1_payload_t *pld = (scaled1_payload_t *)payload;  
     *payloadLen = sizeof(scaled1_payload_t);
 
-    // GetAccelData_mPerSecSq(accels);
-    // GetRateData_degPerSec(rates);
-    // GetMagData_G(mags);
-    // GetBoardTempData(&temp);
-
-    // pld->tstmp   = platformGetIMUCounter();
-    pld->dbTstmp = (double)pld->tstmp * 1.0e-3; // seconds
-
-    for (int i = 0; i < NUM_AXIS; i++){
-        pld->accel_g[i]  = (float)accels[i];
-        pld->rate_dps[i] = (float)rates[i];
-        pld->mag_G[i]    = (float)mags[i];
-    }
-    
-    pld->temp_C = (float)temp;
+    pld->dbTstmp = (double)imu_time.time + (float)imu_time.msec / 1000;
+    pld->temp_C = GetUnitTemp();
+    GetAccelData_g(pld->accel_g);
+    GetRateData_radPerSec(pld->rate_dps);
 
     return TRUE;
 }
