@@ -339,7 +339,7 @@ int bt_uart_parse(uint8_t* bt_buff)     //TODO:
             {
                 case BT_NAME_CMD_DEBUG:
                 {
-                    char* bt_name = get_rtk_json_item_value(root,"bt_name");
+                    get_rtk_json_item_value(root,"bt_name");
 #ifdef DEVICE_DEBUG
                     printf("bt_name = %s\r\n",bt_name);
 #endif
@@ -435,7 +435,7 @@ static void bt_app_json_parse(cJSON* root)
     {
         gConfiguration.packetCode = ((uint16_t)*(packetCode->valuestring) << 8) + *(packetCode->valuestring + 1);
         uint16_t type = ((uint16_t)*(packetCode->valuestring + 1) << 8) + *(packetCode->valuestring);
-        setUserPacketType(&type,TRUE);
+        setUserPacketType((uint8_t *)&type,TRUE);
         strcpy((char*)gUserConfiguration.userPacketType, (const char*)packetCode->valuestring);
         SaveUserConfig();
     }

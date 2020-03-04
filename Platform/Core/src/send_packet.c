@@ -49,7 +49,7 @@
     #include "bare_osapi.h"
 #endif
 #include "Indices.h"
-
+extern mcu_time_base_t imu_time;
 extern UART_HandleTypeDef huart_user;
 extern UART_HandleTypeDef huart_bt;
 void HandleUcbTx(uint16_t port, UcbPacketStruct *ptrUcbPacket);
@@ -662,7 +662,7 @@ void _UcbScaled1(uint16_t port,
 {
 	uint16_t packetIndex = 0;
 
-	ptrUcbPacket->payloadLength = UCB_SCALED_1_LENGTH;
+	ptrUcbPacket->payloadLength = UCB_SCALED_1_LENGTH + 2;
     /// X-accelerometer, Y, Z
 	packetIndex = appendAccels(ptrUcbPacket->payload, packetIndex);
 	/// X-angular rate, Y, Z
@@ -684,9 +684,20 @@ void _UcbScaled1(uint16_t port,
 	packetIndex = appendTemps(ptrUcbPacket->payload, packetIndex);
 #endif
 
-    packetIndex = uint16ToBuffer(ptrUcbPacket->payload, /// packet counter
+    int week = 0;
+    double time = 0;
+    int32_t time_int;
+    gtime_t time_m;
+    time_m.time = imu_time.time;
+    time_m.sec = (double)imu_time.msec / 1000;
+    time = time2gpst(time_m,&week);
+    time_int = time * 1000;
+    packetIndex = uint16ToBuffer(ptrUcbPacket->payload, /// time high 16 bit
                                  packetIndex,
-                                 GetSensorsSamplingTstamp());
+                                 time_int >> 16);
+    packetIndex = uint16ToBuffer(ptrUcbPacket->payload, /// time low 16 bit
+                                 packetIndex,
+                                 (uint16_t)time_int);                                 
 
     packetIndex = uint16ToBuffer(ptrUcbPacket->payload, /// BIT status
                                  packetIndex,

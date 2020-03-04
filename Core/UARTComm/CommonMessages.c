@@ -45,7 +45,6 @@ limitations under the License.
 #endif
 
 
-
 IMUDataStruct gIMU;
 
 /******************************************************************************
@@ -248,7 +247,7 @@ BOOL Fill_e1PacketPayload(uint8_t *payload, uint8_t *payloadLen)
 
     *payloadLen  = sizeof(ekf1_payload_t);
     pld->tstmp   = gIMU.timerCntr;
-    pld->dbTstmp = IMU_start_time.time + IMU_start_time.msec*0.0001;// seconds
+    // pld->dbTstmp = imu_time.time + imu_time.msec*0.0001;// seconds
 
     EKF_GetAttitude_EA(EulerAngles);
     pld->roll    = (float)EulerAngles[ROLL];
@@ -301,7 +300,7 @@ BOOL Fill_e2PacketPayload(uint8_t *payload, uint8_t *payloadLen)
     
     *payloadLen  = sizeof(ekf2_payload_t);
     pld->tstmp   = gIMU.timerCntr;
-    pld->dbTstmp = IMU_start_time.time + IMU_start_time.msec*0.0001;// seconds
+    // pld->dbTstmp = imu_time.time + imu_time.msec*0.0001;// seconds
 
 
     EKF_GetAttitude_EA(rData);

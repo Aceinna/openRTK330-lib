@@ -71,8 +71,6 @@ void itoa_64bit(int64_t value, char s[], int base);
  *******************************************************************************/
 unsigned char DebugPutChar (unsigned char c)
 { 
-    //uart_write(debugSerialChan, &c, 1);
-    char c1 = (char)c;
 #ifdef DEVICE_DEBUG
     uart_write_bytes(UART_DEBUG, &c1, 1, 1);
 #endif
