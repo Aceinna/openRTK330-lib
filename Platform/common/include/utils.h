@@ -1,12 +1,6 @@
-/** ******************************************************************************
- * @file commAPI.h API for referencing serial communication functions 
- *
- * THIS CODE AND INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY
- * KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
- * PARTICULAR PURPOSE.
- *
- *****************************************************************************/
+/*******************************************************************************
+ * @file:   utils.h
+ *******************************************************************************/
 /*******************************************************************************
 Copyright 2020 ACEINNA, INC
 
@@ -24,10 +18,32 @@ limitations under the License.
 *******************************************************************************/
 
 
-#ifndef _COMM_API_H
-#define _COMM_API_H
+#ifndef _UTILS_H
+#define _UTILS_H
 
-extern void  ProcessUserCommands   (void);
-extern void  SendContinuousPacket  (int dacqRate);
+#include <stdint.h>
 
-#endif
+
+#define GPS_BUFF_SIZE (2000)
+#define IMU_BUFF_SIZE (512)
+#define DEBUG_BUFF_SIZE (128)
+
+
+typedef struct
+ {
+	uint8_t* buffer;
+	uint16_t in;
+	uint16_t out;
+	uint16_t size;
+} fifo_type;
+
+
+void fifo_init(fifo_type* fifo, uint8_t* buffer, uint16_t size);
+uint16_t fifo_get(fifo_type* fifo, uint8_t* buffer, uint16_t len);
+uint16_t fifo_status(fifo_type* fifo);
+void fifo_push(fifo_type* fifo, uint8_t* buffer, uint16_t size);
+
+
+#endif /* _UTILS_H */
+
+

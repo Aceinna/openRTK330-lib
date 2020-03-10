@@ -11,7 +11,7 @@
  *        console.
  ******************************************************************************/
 /*******************************************************************************
-Copyright 2018 ACEINNA, INC
+Copyright 2020 ACEINNA, INC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,8 +28,7 @@ limitations under the License.
 
 
 #include "debug.h"
-#include "utilities.h" // for itoa
-#include "GlobalConstants.h"
+#include "constants.h"
 #include "platformAPI.h"
 #include "uart.h"
 #include "string.h"

@@ -4,7 +4,7 @@
 #include "cmsis_os.h"
 #include "osapi.h"
 #include "string.h"
-#include "UserConfiguration.h"
+#include "user_config.h"
 #include "boardDefinition.h"
 
 // Declare the ETH structure

@@ -17,8 +17,47 @@
 #ifndef UCB_PACKET_H
 #define UCB_PACKET_H
 
-#include "GlobalConstants.h"
-#include "ucb_packet_struct.h"
+#include "stdio.h"
+#include "constants.h"
+
+#define UCB_SYNC_LENGTH				2
+#define UCB_PACKET_TYPE_LENGTH		2
+#define UCB_PAYLOAD_LENGTH_LENGTH	1
+#define UCB_CRC_LENGTH				2
+
+#define UCB_SYNC_INDEX				0
+#define UCB_PACKET_TYPE_INDEX		(UCB_SYNC_INDEX + UCB_SYNC_LENGTH)
+#define UCB_PAYLOAD_LENGTH_INDEX    (UCB_PACKET_TYPE_INDEX + UCB_PACKET_TYPE_LENGTH)
+
+
+#define UCB_MAX_PAYLOAD_LENGTH		255
+#define UCB_USER_IN                 200         
+#define UCB_USER_OUT                201      
+#define UCB_ERROR_INVALID_TYPE      202     
+
+
+typedef struct {
+    uint16_t        packetType;
+    uint16_t        packetCode;
+}ucb_packet_t;
+
+typedef struct {
+    uint16_t        packetType;
+    uint8_t         packetCode[2];
+}usr_packet_t;
+
+
+typedef struct {
+     uint8_t       packetType;      // 0
+     uint8_t       systemType;      // 1
+     uint8_t       spiAddress;      // 2
+     uint8_t       sync_MSB;        // 3
+     uint8_t       sync_LSB;        // 4
+     uint8_t       code_MSB;        // 5
+     uint8_t       code_LSB;        // 6
+     uint8_t	   payloadLength;   // 7
+     uint8_t       payload[UCB_MAX_PAYLOAD_LENGTH + 3]; // aligned to 4 bytes 
+} UcbPacketStruct;
 
 // NEEDS TO BE CHECKED
 //  Xbow Packet Code
@@ -34,13 +73,9 @@ typedef enum
     UCB_UNLOCK_EEPROM,      //  7 UE 0x5545
     UCB_READ_EEPROM,        //  8 RE 0x5245
     UCB_WRITE_EEPROM,       //  9 WE 0x4745
-    UCB_PROGRAM_RESET,      // 10 PR 0x5052
     UCB_SOFTWARE_RESET,     // 11 SR 0x5352
     UCB_WRITE_CAL,          // 12 WC 0x5743
     UCB_READ_CAL,           // 13 RC 0x5243
-    UCB_WRITE_APP,          // 14 WA 0x5743
-    UCB_JUMP2_BOOT,
-    UCB_JUMP2_APP,
     UCB_J2BOOT,             // 15 JB 0x4A42
     UCB_J2IAP,              // 16 JI 0x4A49
     UCB_J2APP,              // 17 JA 0x4A41
@@ -57,43 +92,23 @@ typedef enum
     UCB_FACTORY_1,          // 25 F1 0x4631
     UCB_FACTORY_2,          // 26 F2 0x4632
     UCB_FACTORY_M,          // 27 F3 0x464D
-    UCB_ANGLE_1,            // 28 A1 0x4131
-    UCB_MAG_CAL_1_COMPLETE, // 30 CB 0x4342
-    UCB_MAG_CAL_3_COMPLETE, // 31 CD 0x4344
+//**************************************************
     UCB_PKT_NONE,           // 27   marker after last valid packet 
     UCB_NAK,                // 28
-    UCB_ERROR_TIMEOUT,      // 29         
-    UCB_ERROR_CRC_FAIL,     // 30 
 } UcbPacketType;
 
 
 #define UCB_IDENTIFICATION_LENGTH 69
 #define UCB_VERSION_DATA_LENGTH 5
 #define UCB_VERSION_ALL_DATA_LENGTH 15
-#define UCB_ANGLE_1_LENGTH 32
-#define UCB_ANGLE_2_LENGTH 30
-#define UCB_ANGLE_3_LENGTH 30
-#define UCB_ANGLE_4_LENGTH 42 // std A4 = 38 this is custom
-#define UCB_ANGLE_5_LENGTH 62
-#define UCB_ANGLE_U_LENGTH 42
 #define UCB_SCALED_0_LENGTH 30
 #define UCB_SCALED_1_LENGTH 24
 #define UCB_SCALED_M_LENGTH 60
 #define UCB_TEST_0_LENGTH 28
-#define UCB_TEST_1_LENGTH 32
 #define UCB_FACTORY_1_LENGTH 54
 #define UCB_FACTORY_2_LENGTH 66
 #define UCB_FACTORY_M_LENGTH 85
-#define UCB_FACTORY_4_LENGTH 54
-#define UCB_FACTORY_5_LENGTH 70
-#define UCB_FACTORY_6_LENGTH 66
-#define UCB_FACTORY_7_LENGTH 134
-#define UCB_MAG_CAL_1_COMPLETE_LENGTH 4
-#define UCB_MAG_CAL_3_COMPLETE_LENGTH 10
-#define UCB_NAV_0_LENGTH 32
-#define UCB_NAV_1_LENGTH 42
-#define UCB_NAV_2_LENGTH 46 // with ITOW
-#define UCB_KT_LENGTH 18
+
 
 /// UCB packet-specific utility functions ucb_packet.c
 extern UcbPacketType     UcbPacketBytesToPacketType    (const uint8_t bytes []);
@@ -105,11 +120,6 @@ extern BOOL UcbPacketIsAnOutputPacket(UcbPacketType type);
 extern void SendUcbPacket(uint16_t port, UcbPacketStruct *ptrUcbPacket);
 // handle packet.c
 extern void HandleUcbPacket(UcbPacketStruct *ptrUcbPacket);
-extern int  HandleUserInputPacket (UcbPacketStruct *ptrUcbPacket);
-extern BOOL HandleUserOutputPacket (uint8_t *payload, uint8_t *payloadLen);
 
 
-// Function used to write the Mag-Align parameters to the EEPROM by field
-extern void WriteMagAlignParamsToMemory( uint16_t        port,
-                                         UcbPacketStruct *ptrUcbPacket );
 #endif

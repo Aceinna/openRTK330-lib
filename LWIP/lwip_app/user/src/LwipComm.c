@@ -13,13 +13,12 @@
 #include "ethernetif.h"
 #include "stm32f4xx_hal.h"
 #include "osapi.h"
-#include "osresources.h"
 #include <stdio.h>
 #include <string.h>
 #include "httpd.h"
 #include "netbios.h"
 #include "ntripClient.h"
-#include "UserConfiguration.h"
+#include "user_config.h"
 #include "cmsis_os.h"
 
 /* network interface structure */

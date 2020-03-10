@@ -26,34 +26,20 @@
 #include "stm32f4xx_hal.h"
 #include "uart.h"
 #include "driver.h"
-#include "log.h"
-#include "RingBuffer.h"
+#include "utils.h"
 #include "boardDefinition.h"
-#include "shell.h"
-#ifndef BAREMETAL_OS
 #include "FreeRTOS.h"
 #include "osapi.h"
-#else
-#include "bare_osapi.h"
-#endif
+
 
 // osSemaphoreDef(RX_ACQ_SEM);
 // osSemaphoreDef(TX_ACQ_SEM);
 
-#define UART_CHECK(a, str, ret_val) \
-    if (!(a)) { \
-		RTK_LOG(ATS_LOG_INFO,UART_TAG,"%s(%d): %s", __FUNCTION__, __LINE__, str); \
-        return (ret_val); \
-    }
-	
 
 static uint8_t uart_user_buff[IMU_BUFF_SIZE];
 static uint8_t uart_bt_buff[GPS_BUFF_SIZE];
 static uint8_t uart_gps_buff[GPS_BUFF_SIZE];
 static uint8_t uart_debug_buff[GPS_BUFF_SIZE];
-
-
-static const char* UART_TAG = "drive_uart";
 
 
 DMA_HandleTypeDef hdma_usart_user_rx;
@@ -65,10 +51,10 @@ DMA_HandleTypeDef hdma_usart_gps_tx;
 DMA_HandleTypeDef hdma_usart_bt_rx;
 DMA_HandleTypeDef hdma_usart_bt_tx;
 
-FIFO_Type uart_gps_rx_fifo;
-FIFO_Type uart_debug_rx_fifo;
-FIFO_Type uart_bt_rx_fifo;
-FIFO_Type uart_user_rx_fifo;
+fifo_type uart_gps_rx_fifo;
+fifo_type uart_debug_rx_fifo;
+fifo_type uart_bt_rx_fifo;
+fifo_type uart_user_rx_fifo;
 
 #ifdef USER_UART_DMA_FIFO
 static uint8_t user_uart_dma_tx_buff[DMA_TX_FIFO_BUF_SIZE];
@@ -113,28 +99,24 @@ uart_obj_t uart_obj[UART_MAX];
 
 static int uart_receive_dma(uart_port_e uart_num)
 {
-    UART_CHECK((p_uart_obj[uart_num]), "uart driver error", (-1));
     HAL_UART_Receive_DMA(p_uart_obj[uart_num]->huart, p_uart_obj[uart_num]->uart_rx_fifo->buffer, p_uart_obj[uart_num]->uart_rx_fifo->size);
     return RTK_OK;
 }
 
 static int uart_rx_dma_enable(uart_port_e uart_num)
 {
-    UART_CHECK((p_uart_obj[uart_num]),"uart driver error",(-1));
     __HAL_DMA_ENABLE(p_uart_obj[uart_num]->hdma_usart_rx);
     return RTK_OK;
 }
 
 static int uart_dma_stop(uart_port_e uart_num)
 {
-    UART_CHECK((p_uart_obj[uart_num]),"uart driver error",(-1));
     HAL_UART_DMAStop(p_uart_obj[uart_num]->huart);
     return RTK_OK;
 }
 
 static int uart_dma_enanle_it(uart_port_e uart_num,uint32_t it_type)
 {
-    UART_CHECK((p_uart_obj[uart_num]),"uart driver error",(-1));
     __HAL_UART_ENABLE_IT(p_uart_obj[uart_num]->huart,it_type);
     return RTK_OK;
 }
@@ -145,9 +127,7 @@ int uart_read_bytes(uart_port_e uart_num, uint8_t* buf, uint32_t len, TickType_t
 	uint16_t lenght;
 	uint16_t in = p_uart_obj[uart_num]->uart_rx_fifo->in;
 	uint16_t i;
-    UART_CHECK((uart_num < UART_MAX), "uart_num error", (-1));
-    UART_CHECK((buf), "uart data null", (-1));
-    UART_CHECK((p_uart_obj[uart_num]), "uart driver error", (-1));
+
 #ifdef UART_BLOCK    
     if(ticks_to_wait > 0)
     {
@@ -174,22 +154,18 @@ int uart_read_bytes(uart_port_e uart_num, uint8_t* buf, uint32_t len, TickType_t
 static uint8_t data_to_write[DMA_TX_FIFO_BUF_SIZE];
 int uart_write_bytes(uart_port_e uart_num, const char* src, size_t size, bool is_wait)	//TODO:
 {
-    UART_CHECK((uart_num < UART_MAX), "uart_num error", (-1));
-    UART_CHECK((p_uart_obj[uart_num]), "uart driver error", (-1));
-    UART_CHECK(src, "buffer null", (-1));
 #ifdef USER_UART_DMA_FIFO
     if(uart_num == UART_USER)
     {
-        FifoPush(&user_uart_dma_tx_fifo.uart_tx_fifo,(uint8_t*)src,size);
+        fifo_push(&user_uart_dma_tx_fifo.uart_tx_fifo,(uint8_t*)src,size);
         user_uart_dma_tx_fifo.frame_num+= 1;
         user_uart_dma_tx_fifo.data_total_num+= size;
         if(user_uart_dma_tx_fifo.data_total_num > DMA_TX_FIFO_BUF_SIZE)
         {
-            RTK_LOG(ATS_LOG_INFO,UART_TAG, "UART tx buf overflow");
         }
         if(p_uart_obj[UART_USER]->huart->gState == HAL_UART_STATE_READY)
         {
-            int data_len = FifoGet(&user_uart_dma_tx_fifo.uart_tx_fifo,data_to_write,DMA_TX_FIFO_BUF_SIZE);
+            int data_len = fifo_get(&user_uart_dma_tx_fifo.uart_tx_fifo,data_to_write,DMA_TX_FIFO_BUF_SIZE);
             user_uart_dma_tx_fifo.frame_num = 0;
             user_uart_dma_tx_fifo.data_total_num = 0;
             HAL_UART_Transmit_DMA(p_uart_obj[UART_USER]->huart, data_to_write, data_len);
@@ -203,35 +179,28 @@ int uart_write_bytes(uart_port_e uart_num, const char* src, size_t size, bool is
         {
             if(is_wait == 0)
                 return 0;
-#ifndef BAREMETAL_OS
             osDelay(1);
-#endif
         }
     }
     return RTK_OK;
 }
 
 
-int uart_driver_install(uart_port_e uart_num, FIFO_Type* uart_rx_fifo,UART_HandleTypeDef* huart,int baudrate)
+int uart_driver_install(uart_port_e uart_num, fifo_type* uart_rx_fifo,UART_HandleTypeDef* huart,int baudrate)
 {
     rtk_ret_e ret;
-    UART_CHECK((uart_num < UART_MAX), "uart_num error", RTK_FAIL);
 
     if(p_uart_obj[uart_num] == NULL) 
 	{
         p_uart_obj[uart_num] = &uart_obj[uart_num];
         if(p_uart_obj[uart_num] == NULL) {
-            RTK_LOG(ATS_LOG_INFO,UART_TAG, "UART driver malloc error");
             return RTK_FAIL;
         }
-#ifndef BAREMETAL_OS
         osSemaphoreDef(UART_IDLE_SEM);
         if((uart_num == UART_BT) || (uart_num == UART_DEBUG))
-        //if((uart_num == UART_BT))
         {
             p_uart_obj[uart_num]->uart_idle_sem = osSemaphoreCreate(osSemaphore(UART_IDLE_SEM), 1);
         }        
-#endif
         p_uart_obj[uart_num]->hdma_usart_rx = uart_config[uart_num].hdma_usart_rx;
         p_uart_obj[uart_num]->hdma_usart_tx = uart_config[uart_num].hdma_usart_tx;
         p_uart_obj[uart_num]->uart_num = uart_num;
@@ -239,7 +208,7 @@ int uart_driver_install(uart_port_e uart_num, FIFO_Type* uart_rx_fifo,UART_Handl
 
 		//uint8_t* uart_x_buff = (uint8_t*)malloc(sizeof(uint8_t) * uart_config[uart_num].rec_buff_size);
 		
-        FifoInit(uart_rx_fifo, uart_config[uart_num].rec_buff, uart_config[uart_num].rec_buff_size);       
+        fifo_init(uart_rx_fifo, uart_config[uart_num].rec_buff, uart_config[uart_num].rec_buff_size);       
         p_uart_obj[uart_num]->uart_rx_fifo = uart_rx_fifo;     
 		p_uart_obj[uart_num]->huart = huart;
 
@@ -253,7 +222,6 @@ int uart_driver_install(uart_port_e uart_num, FIFO_Type* uart_rx_fifo,UART_Handl
     } 
 	else 
 	{
-        RTK_LOG(ATS_LOG_INFO,UART_TAG, "UART driver already installed");
         return RTK_FAIL;
     }
     p_uart_obj[uart_num]->huart->Instance = (USART_TypeDef*)(uart_config[uart_num].uart_base_addr);
@@ -289,7 +257,7 @@ int uart_driver_install(uart_port_e uart_num, FIFO_Type* uart_rx_fifo,UART_Handl
         user_uart_dma_tx_fifo.is_dma_busy = 0;
         user_uart_dma_tx_fifo.frame_num = 0;
         user_uart_dma_tx_fifo.is_data_available = 0;
-        FifoInit(&user_uart_dma_tx_fifo.uart_tx_fifo, user_uart_dma_tx_buff, DMA_TX_FIFO_BUF_SIZE); 
+        fifo_init(&user_uart_dma_tx_fifo.uart_tx_fifo, user_uart_dma_tx_buff, DMA_TX_FIFO_BUF_SIZE); 
     }
 #endif    
     return ret;
@@ -324,7 +292,6 @@ static void uart_isr_if(uart_port_e uart_num)
         uart_dma_enanle_it(uart_num,UART_IT_IDLE);
     }
     HAL_UART_IRQHandler(p_uart_obj[uart_num]->huart);
-#ifndef BAREMETAL_OS
     if((uart_num == UART_BT) || (uart_num == UART_DEBUG))
     {
         if (RESET == __HAL_UART_GET_FLAG(p_uart_obj[uart_num]->huart, UART_FLAG_IDLE))
@@ -332,7 +299,6 @@ static void uart_isr_if(uart_port_e uart_num)
             osSemaphoreRelease(p_uart_obj[uart_num]->uart_idle_sem);
         }
     }
-#endif
 #ifdef UART_BLOCK
     osSemaphoreRelease(p_uart_obj[uart_num]->rx_sem);
 #endif
@@ -456,9 +422,7 @@ rtk_ret_e uart_sem_wait(uart_port_e uart_num,uint32_t millisec)
 {
     if((uart_num == UART_BT) || (uart_num == UART_DEBUG))
     {
-#ifndef BAREMETAL_OS
         if(osSemaphoreWait(p_uart_obj[uart_num]->uart_idle_sem,millisec) == osOK)
-#endif
         {
             return RTK_SEM_OK;
         }

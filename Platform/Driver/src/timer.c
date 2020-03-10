@@ -14,16 +14,11 @@
 * Description: modify double get_time_of_msec(),Otherwise, a data overflow will occur
 *******************************************************************************/
 #include "timer.h"
-#include "GlobalConstants.h"
-#ifndef BAREMETAL_OS
-    #include "osapi.h"
-#else
-    #include "bare_osapi.h"
-#endif
+#include "constants.h"
+#include "osapi.h"
 #include "rtcm.h"
-#include "gpsAPI.h"
 #include "stm32f4xx_hal.h"
-
+#include "main.h"
 #define SENSOR_TIMER_IRQ                       TIM2_IRQHandler
 
 TIM_HandleTypeDef htim1;
@@ -104,16 +99,12 @@ void MX_TIM_SENSOR_Init(void)
 }
 
 volatile mcu_time_base_t g_MCU_time;
-#ifndef BAREMETAL_OS
-extern osSemaphoreId dataAcqSem;
-#endif
 
-#ifndef BAREMETAL_OS
+
 void release_sem(osSemaphoreId sem)
 {
     osSemaphoreRelease(sem);
 }
-#endif
 time_t get_time_of_msec()
 {
     return (g_MCU_time.time * 1000 + g_MCU_time.msec);
@@ -129,23 +120,16 @@ static void timer_isr_if(TIM_HandleTypeDef* timer)
     if(timer == &htim_sensor)
     {
         usCnt ++;
-        // if(usCnt >= 100)
         {
-            usCnt = 0;
             g_MCU_time.msec += 1;
             if(g_MCU_time.msec >= 1000)
             {
                 g_MCU_time.msec = 0;
                 g_MCU_time.time ++;
-    //            if(gPtrGnssSol -> gpsUpdate == 1)
-    //                gPtrGnssSol->gpsUpdate = 2;
             }
             if(g_MCU_time.msec % 20 == 0)
             {
-#ifndef BAREMETAL_OS
-                release_sem(dataAcqSem);
-#endif
-                // NSS_Toggle();
+                release_sem(g_sem_imu_data_acq);
             }  
         }
 

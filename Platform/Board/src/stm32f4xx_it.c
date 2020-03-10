@@ -40,14 +40,7 @@
 #include "stm32f4xx_it.h"
 #include "Indices.h"
 #include "boardDefinition.h"
-#ifndef BAREMETAL_OS
-    #include "sensorsAPI.h"
-    #include "osapi.h"
-    #include "osresources.h"
-#else
-    #include "bare_osapi.h"
-#endif
-#include "RingBuffer.h"
+#include "utils.h"
 #include "rtcm.h"
 #include "led.h"
 #include "timer.h"
@@ -243,14 +236,6 @@ void DebugMon_Handler(void)
 
   /* USER CODE END DebugMonitor_IRQn 1 */
 }
-
-
-#ifdef BAREMETAL_OS
-void SysTick_Handler(void)
-{
-	HAL_IncTick();
-}
-#endif
 
 /******************************************************************************/
 /* STM32F4xx Peripheral Interrupt Handlers                                    */

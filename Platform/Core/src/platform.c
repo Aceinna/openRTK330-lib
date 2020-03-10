@@ -17,7 +17,7 @@
 //*****************************
 #include "BitStatus.h"
 #include "platform_version.h"
-#include "GlobalConstants.h"
+#include "constants.h"
 
 int     userSerialChan;
 int     gpsSerialChan;
@@ -96,18 +96,6 @@ BOOL platformIsInBootMode()
 void platformSetMode(BOOL isBoot)
 {
     bootMode = isBoot;
-}
-
-static BOOL _useGpsPps = FALSE;
-
-BOOL platformIsGpsPPSUsed(void)
-{
-    return _useGpsPps;
-}
-
-void platformEnableGpsPps(BOOL enable)
-{
-    _useGpsPps = enable;
 }
 
 /*end void initConfigureUnit(void) */

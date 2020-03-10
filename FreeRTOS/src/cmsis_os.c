@@ -1405,7 +1405,6 @@ osStatus osMailFree (osMailQId queue_id, void *mail)
 * @param  none.
 * @retval none.
 */
-#ifndef BAREMETAL_OS
 void osSystickHandler(void)
 {
 
@@ -1419,7 +1418,6 @@ void osSystickHandler(void)
   }
 #endif  /* INCLUDE_xTaskGetSchedulerState */  
 }
-#endif
 #if ( INCLUDE_eTaskGetState == 1 )
 /**
 * @brief  Obtain the state of any thread.

@@ -13,7 +13,7 @@
  ******************************************************************************/
 #include "configureGPIO.h"
 // #include "boardAPI.h"
-#include "GlobalConstants.h"
+#include "constants.h"
 // #include "platformAPI.h"
 #include "stm32f4xx_hal_conf.h"
 #include "bsp.h"

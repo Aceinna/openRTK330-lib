@@ -16,11 +16,7 @@
 #include "stm32f4xx_hal.h"
 #include "led.h"
 #include "driver.h"
-#include "log.h"
-#ifndef BAREMETAL_OS
-#include "FreeRTOS.h"
-#include "osapi.h"
-#endif
+
 
 rtk_ret_e led_driver_install()
 {

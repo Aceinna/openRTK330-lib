@@ -9,7 +9,7 @@
  * @brief UCB (Unified Code Base) external serial interface
  *****************************************************************************/
 /*******************************************************************************
-Copyright 2018 ACEINNA, INC
+Copyright 2020 ACEINNA, INC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,25 +25,22 @@ limitations under the License.
 *******************************************************************************/
 
 #include <stdint.h>
-#include "GlobalConstants.h"
+#include "constants.h"
 #include "serial_port.h"
 #include "uart.h"
 #include "crc16.h"
 #include "ucb_packet.h"
-#include "ucb_packet_struct.h"
 #include "platformAPI.h"
 #include "configuration.h"
+#include "user_message.h"
 
 typedef struct{
     int      type;
     uint16_t code;
 }ucbInputSyncTableEntry_t;
-extern ConfigurationStruct gConfiguration;
 // NEEDS TO BE CHECKED
 /// List of allowed input packet codes
 ucbInputSyncTableEntry_t ucbInputSyncTable[] = {
-    {UCB_JUMP2_BOOT,         0x4A42},   //  "JB" 
-    {UCB_JUMP2_APP,          0x4A41},   //  "JA"
     {UCB_PING,              0x504B},    //  "PK"
     {UCB_ECHO,              0x4348},    //  "CH"
     {UCB_GET_PACKET,        0x4750},    //  "GP"
@@ -57,7 +54,6 @@ ucbInputSyncTableEntry_t ucbInputSyncTable[] = {
     {UCB_SOFTWARE_RESET,    0x5352},    //  "SR"
     {UCB_WRITE_CAL,         0x5743},    //  "WC"
     {UCB_READ_CAL,          0x5243},    //  "RC"
-    {UCB_WRITE_APP,         0x5741},    //  "WA"
     {UCB_J2BOOT,            0x4A42},    //  "JB"
     {UCB_J2IAP,             0x4A49},    //  "JI"
     {UCB_J2APP,             0x4A41},    //  "JA"
@@ -65,42 +61,7 @@ ucbInputSyncTableEntry_t ucbInputSyncTable[] = {
     {UCB_INPUT_PACKET_MAX,  0x00000000},    //  "  "
 };
 
-__weak usr_packet_t userInputPackets[] = {
-    {USR_IN_NONE,               {0,0}},
-    {USR_IN_PING,               "pG"},
-    {USR_IN_UPDATE_PARAM,       "uP"},
-    {USR_IN_SAVE_CONFIG,        "sC"},
-    {USR_IN_GET_ALL,            "gA"},
-    {USR_IN_GET_VERSION,        "gV"}, 
-// place new input packet code here, before USR_IN_MAX
-    {USR_IN_MAX,                {0xff, 0xff}},   //  "" 
-};
-
-__weak usr_packet_t userOutputPackets[] = {	
-//   Packet Type                Packet Code
-    {USR_OUT_NONE,              {0x00, 0x00}}, 
-    {USR_OUT_TEST,              "zT"},   
-    {USR_OUT_DATA1,             "z1"},   
-    {USR_OUT_ANG1,              "a1"},   
-    {USR_OUT_ANG2,              "a2"},   
-// place new type and code here
-    {USR_OUT_SCALED1,           "s1"},
-    {USR_OUT_EKF1,              "e1"},
-    {USR_OUT_EKF2,              "e2"},
-    {USR_OUT_RTK1,              "K1"},
-    {USR_OUT_POS,               "pS"},
-    {USR_OUT_SKY,               "sK"},
-    {USR_OUT_C1,                "C1"}, //4331
-    {USR_OUT_MAX,               {0xff, 0xff}},   //  "" 
-};
-static   int    _outputPacketType  = USR_OUT_MAX;
-static   int    _inputPacketType   = USR_IN_MAX;
 uint8_t dataBuffer[512];
-
-int get_input_packet_type()
-{
-    return _inputPacketType;
-}
 
 /** ****************************************************************************
  * @name HandleUcbRx
@@ -120,7 +81,6 @@ int get_input_packet_type()
  *         FALSE if needing more to fill in a packet
  ******************************************************************************/
 BOOL HandleUcbRx (UcbPacketStruct  *ucbPacket)
-
 {
     static int bytesInBuffer = 0, state = 0, crcError = 0, len = 0;
     static uint8_t *ptr;
@@ -238,11 +198,9 @@ BOOL HandleUcbRx (UcbPacketStruct  *ucbPacket)
  * @retval valid packet in packetPtr TRUE
  ******************************************************************************/
 void HandleUcbTx (int port, UcbPacketStruct *ptrUcbPacket)
-
 {
-
-	UcbPacketCrcType crc;
-	uint8_t          data[2];
+	uint16_t crc;
+	uint8_t data[2];
 
 	/// get byte representation of packet type, index adjust required since sync
     /// isn't placed in data array
@@ -257,69 +215,6 @@ void HandleUcbTx (int port, UcbPacketStruct *ptrUcbPacket)
     ptrUcbPacket->payload[ptrUcbPacket->payloadLength+1]   = (crc >> 8) & 0xff;
     ptrUcbPacket->payload[ptrUcbPacket->payloadLength]     =  crc  & 0xff;
 
-    if (gConfiguration.packetCode != 0x4331) //C1
-    {
-        uart_write_bytes(port, (const char *)&ptrUcbPacket->sync_MSB, ptrUcbPacket->payloadLength + 7,1);
-    }
-    else
-    {
-        uart_write_bytes(UART_USER, (const char *)&ptrUcbPacket->payload, ptrUcbPacket->payloadLength,1);
-    }
+    uart_write_bytes(port, (const char *)&ptrUcbPacket->sync_MSB, ptrUcbPacket->payloadLength + 7,1);
 }
 /* end HandleUcbTx */
-
-__weak int checkUserPacketType(uint16_t receivedCode)
-{
-    int res     = UCB_ERROR_INVALID_TYPE;
-    usr_packet_t *packet  = &userInputPackets[1];
-    uint16_t code;
-
-    // validate packet code here and memorise for further processing
-    while(packet->packetType != USR_IN_MAX){
-        code = (packet->packetCode[0] << 8) | packet->packetCode[1];
-        if(code == receivedCode){
-            _inputPacketType = packet->packetType;
-            return UCB_USER_IN;
-        }
-        packet++;
-    }
-
-    packet  = &userOutputPackets[1];
-    
-    // validate packet code here and memorize for further processing
-    while(packet->packetType != USR_OUT_MAX){
-        code = (packet->packetCode[0] << 8) | packet->packetCode[1];
-        if(code == receivedCode){
-            _outputPacketType = packet->packetType;
-            return UCB_USER_OUT;
-        }
-        packet++;
-    }
-
-    return res;
-}
-
-__weak void userPacketTypeToBytes(uint8_t *bytes)               //TODO:
-{
-    if(_inputPacketType && _inputPacketType <  USR_IN_MAX){
-        // response to request. Return same packet code
-        bytes[0] = userInputPackets[_inputPacketType].packetCode[0];
-        bytes[1] = userInputPackets[_inputPacketType].packetCode[1];
-        _inputPacketType = USR_IN_MAX;  // wait for next input packet
-        return;
-    }
-    
-    if(_outputPacketType && _outputPacketType < USR_OUT_MAX){
-        // continuous packet
-        bytes[0] = userOutputPackets[_outputPacketType].packetCode[0];
-        bytes[1] = userOutputPackets[_outputPacketType].packetCode[1];
-    } else {
-        bytes[0] = 0;
-        bytes[1] = 0;
-    }
-
-}
-__weak int getUserPayloadLength(void)
-{
-    return RTK_OK;
-}

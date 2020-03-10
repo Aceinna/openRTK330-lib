@@ -10,7 +10,7 @@
  * PARTICULAR PURPOSE.
  *****************************************************************************/
 /*******************************************************************************
-Copyright 2018 ACEINNA, INC
+Copyright 2020 ACEINNA, INC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,18 +27,13 @@ limitations under the License.
 
 
 #include <string.h> // strcmp, strstr
-
-//#include "UserConfiguration.h"
 #include "ucb_packet.h"
-
+#include "user_message.h"
 
 // NEEDS TO BE CHECKED
 /// List of allowed packet codes 
 ucb_packet_t ucbPackets[] = {		//       
-    {UCB_WRITE_APP,          0x5741},   //  "WA" 
-    {UCB_JUMP2_BOOT,         0x4A42},   //  "JB" 
     {UCB_J2IAP,              0x4A49},   //  "JI"
-    {UCB_JUMP2_APP,          0x4A41},   //  "JA" 
     {UCB_PING,               0x504B},   //  "PK" 
     {UCB_ECHO,               0x4348},   //  "CH" 
     {UCB_GET_PACKET,         0x4750},   //  "GP" 
@@ -49,7 +44,6 @@ ucb_packet_t ucbPackets[] = {		//
     {UCB_UNLOCK_EEPROM,      0x5545},   //  "UE" 
     {UCB_READ_EEPROM,        0x5245},   //  "RE" 
     {UCB_WRITE_EEPROM,       0x5745},   //  "WE" 
-    {UCB_PROGRAM_RESET,      0x5052},   //  "PR" 
     {UCB_SOFTWARE_RESET,     0x5352},   //  "SR" 
     {UCB_WRITE_CAL,          0x5743},   //  "WC" 
     {UCB_IDENTIFICATION,     0x4944},   //  "ID" 
@@ -62,8 +56,6 @@ ucb_packet_t ucbPackets[] = {		//
     {UCB_FACTORY_1,          0x4631},   //  "F1" 
     {UCB_FACTORY_2,          0x4632},   //  "F2"
     {UCB_FACTORY_M,          0x464D},   //  "FM"
-    {UCB_MAG_CAL_1_COMPLETE, 0x4342},   //  "CB" 
-    {UCB_MAG_CAL_3_COMPLETE, 0x4344},   //  "CD" 
     {UCB_USER_OUT,           0x5550},   //  "UP" 
     {UCB_PKT_NONE,           0x0000}   //  "  "     should be last in the table as a end marker 
 };
@@ -84,7 +76,7 @@ UcbPacketType UcbPacketBytesToPacketType (const uint8_t bytes [])
 {
 	UcbPacketType packetType = UCB_ERROR_INVALID_TYPE;
     ucb_packet_t *pkt = ucbPackets; 
-	UcbPacketCodeType receivedCode = (UcbPacketCodeType)(((bytes[0] & 0xff) << 8) |
+	uint16_t receivedCode = (uint16_t)(((bytes[0] & 0xff) << 8) |
                                                           (bytes[1] & 0xff));
 
     /// search through the packet code table for a matching code - check type
@@ -143,89 +135,6 @@ void UcbPacketPacketTypeToBytes (UcbPacketType type,
 }
 /* end UcbPacketPacketTypeToBytes */
 
-/******************************************************************************
- * Function name:	UcbPacketTypeToCode
-* @brief Convert the packet type enum into packet code 
-         For example UCB_PING ->0x504B ("PK") 
- * Trace:
- * [SDD_UCB_UNKNOWN_01 <-- SRC_UCB_PKT_STR]
- * [SDD_HANDLE_PKT     <-- SRC_UCB_PKT_STR]
- * @param [in] byte array, containing one byte
- * @Retval length
- ******************************************************************************/
-void UcbPacketPacketTypeToCode (UcbPacketType type, uint16_t *code)
-{
-// carefull here, since for sake of speed it's indexing but not lookup through ucbPackets structure  
-    if (type < UCB_PKT_NONE) {
-        *code = ucbPackets[type].packetCode;
-	}else{
-        *code = ucbPackets[UCB_PKT_NONE].packetCode;
-    }
-}
-/* end UcbPacketPacketTypeToCode */
-
-
-
-/** ****************************************************************************
- * Function name:	UcbPacketBytesToPayloadLength
- * @brief Convert the packet bytes into the packet payload length
- * Trace:
- * [SDD_UCB_STORE_DATA <-- SRC_UCB_PAYLEN]
- * [SDD_UCB_PKT_PAYLEN <-- SRC_UCB_PAYLEN]
- * @param [in] byte array, containing one byte
- * @Retval length
- ******************************************************************************/
-uint8_t UcbPacketBytesToPayloadLength (const uint8_t bytes [])
-{
-	return (uint8_t)(bytes[0] & 0xff);
-}
-/* end UcbPacketBytesToPayloadLength */
-
-/** ****************************************************************************
- * @name UcbPacketPayloadLengthToBytes
- * @brief	Convert the payload length into bytes
- * Trace:
- * [SDD_UCB_PROCESS_OUT <-- SRC_UCB_PKT_LENBYT]
- * [SDD_UCB_PKT_LENBYT <-- SRC_UCB_PKT_LENBYT]
- * @param [in] type - payload type
- * @param [out] byte array, containing one byte
- * @Retval none
- ******************************************************************************/
-void	UcbPacketPayloadLengthToBytes (uint8_t length,
-                                       uint8_t bytes [])
-{
-	bytes[0] = (uint8_t)(length & 0xff);
-}
-/* end UcbPacketBytesToPayloadLength */
-
-/** ****************************************************************************
- * @name UcbPacketBytesToCrc
- * Description:
- * @param [in] byte array with byte[0] containing input value
- * @retval N/A
- ******************************************************************************/
-UcbPacketCrcType UcbPacketBytesToCrc (const uint8_t bytes [])
-{
-	return ((UcbPacketCrcType)(((bytes[0] & 0xff) << 8) | (bytes[1] & 0xff)));
-}
-/* end UcbPacketBytesToCrc */
-
-/** ****************************************************************************
- * @name UcbPacketCrcToBytes
- * @broef This function converts a value into a 2 byte string.
- * Trace: [SDD_UCB_PROCESS_OUT <-- SRC_UCB_PKT_CRCSTR]
- * @param [in] crc - 16-bit value (crc value)
- * @param [out] byte array with byte[0] containing the upper byte of input value
- * @retval N/A
- ******************************************************************************/
-void UcbPacketCrcToBytes (const UcbPacketCrcType crc,
-                          uint8_t                bytes [])
-{
-	bytes[0] = (uint8_t)((crc >> 8) & 0xff);
-	bytes[1] = (uint8_t)(crc & 0xff);
-}
-/* end UcbPacketCrcToBytes */
-
 
 /** ****************************************************************************
  * @name UcbPacketIsAnInputPacket
@@ -252,7 +161,6 @@ BOOL UcbPacketIsAnInputPacket (UcbPacketType type)
         case UCB_UNLOCK_EEPROM:
         case UCB_READ_EEPROM:
         case UCB_WRITE_EEPROM:
-        case UCB_PROGRAM_RESET:
         case UCB_SOFTWARE_RESET:
         case UCB_WRITE_CAL:
             isAnInputPacket = TRUE;

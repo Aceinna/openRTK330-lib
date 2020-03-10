@@ -13,18 +13,13 @@
 #include "boardDefinition.h"
 #include "exit.h"
 #include "timer.h"
+#include "gnss_data_api.h"
 #include "led.h"
-#include "gpsAPI.h"
-#include "osresources.h"
 #include "bsp.h"
-//#include "taskDataAcquisition.h"
 #include "uart.h"
-#ifndef BAREMETAL_OS
 #include "osapi.h"
-#endif
+
 volatile mcu_time_base_t g_obs_rcv_time;
-
-
 
 
 __weak uint8_t get_gnss_signal_flag()
@@ -51,7 +46,6 @@ void pps_exit_init(void)
 }
 
 
-extern GpsData_t *gGpsDataPtr;
 extern volatile mcu_time_base_t g_MCU_time;
 uint8_t g_pps_flag = 0;
 extern uint32_t usCnt;
@@ -68,45 +62,19 @@ void ST_PPS_IRQ(void)
     {
         if (g_MCU_time.msec < 500)
         {
-#ifndef BAREMETAL_OS
-            if(dataAcqSem != 0)
-            {
-                release_sem(dataAcqSem);
-            }
-#endif
+            g_MCU_time.msec = 499;
+            htim_sensor.Instance->CNT = 44960;
+        }
+        else if(g_MCU_time.msec > 500)
+        {
+            g_MCU_time.msec = 500;
+            htim_sensor.Instance->CNT = 1;            
         }
 
-        usCnt = 0;
-
-
-
-        g_MCU_time.msec = 500;
-        htim_sensor.Instance->CNT = 0;
         if(get_gnss_signal_flag() && (g_MCU_time.msec - g_obs_rcv_time.msec) >= 0 && (g_MCU_time.time == g_obs_rcv_time.time))
-            //g_MCU_time.time = gGpsDataPtr->rtcm.obs[0].time.time;
-            g_MCU_time.time = get_obs_time();
-    }
-    // else
-    // {
-    //     g_MCU_time.msec = 0;
-    //     usCnt = 100;
-    //     g_MCU_time.time  = gGpsDataPtr->rtcm.obs[0].time.time + 1;
-    //     release_sem(dataAcqSem);
-    // }     
+            g_MCU_time.time = get_obs_time();    
     
-
-    // if (gGpsDataPtr->rtcm.obs[0].time.sec < 0.5)
-    // {
-    //     g_MCU_time.msec = 500;
-    //     usCnt = 0;
-    //     g_MCU_time.time = gGpsDataPtr->rtcm.obs[0].time.time;
-    // }
-    // else
-    // {
-    //     g_MCU_time.msec = 0;
-    //     usCnt = 0;
-    //     g_MCU_time.time  = gGpsDataPtr->rtcm.obs[0].time.time + 1;
-    // }  
+    }
     HAL_GPIO_EXTI_IRQHandler(ST_PPS_PIN);
     OSExitISR();    
 }

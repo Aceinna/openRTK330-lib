@@ -18,7 +18,7 @@
 #ifndef XBOWSP_ALGORITHM_H
 #define XBOWSP_ALGORITHM_H
 
-#include "GlobalConstants.h"
+#include "constants.h"
 
 #include "BITStatus.h" // BITStatusStruct
 #include "Indices.h"

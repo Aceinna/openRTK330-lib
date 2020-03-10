@@ -15,17 +15,12 @@
 #include <stdlib.h> // malloc
 #include <math.h>   // fabs()
 
-#include "GlobalConstants.h"
+#include "constants.h"
 #include "sensorsAPI.h"
 #include "Indices.h"
 #include "filter.h"
 #include "xbowsp_algorithm.h"
-#ifndef BAREMETAL_OS
-    //#include "sensor.h"
-    //#include "sensors_data.h"
-#else
-    #include "bare_osapi.h"
-#endif
+
 // Butterworth (IIR) low-pass filter coefficients Q27
 // 200 Hz Sampling
 static int32_t b_2_Hz_iir_200HzSamp[] = {134217728, -256516528,  122805978};

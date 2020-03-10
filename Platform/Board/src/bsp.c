@@ -20,12 +20,6 @@
 #include "boardDefinition.h"
 #include "configureGPIO.h"
 #include "eepromAPI.h"
-#ifndef BAREMETAL_OS
-    #include "FreeRTOS.h"
-    #include "osapi.h"
-#else
-    #include "bare_osapi.h"
-#endif
 #include "bsp.h"
 #include "led.h"
 #include "rtcm.h"

@@ -21,11 +21,6 @@
 #include "parameters.h"
 #include "eepromAPI.h"
 #include "crc16.h"
-#ifndef BAREMETAL_OS
-    #include "osapi.h"
-#else
-    #include "bare_osapi.h"
-#endif
 #include "BITStatus.h"
 #ifndef SENSOR_UNUSED
 	#include "calibrationAPI.h"
@@ -34,7 +29,7 @@
 #include "hwAPI.h"
 #include "platformAPI.h"
 #include "configureGPIO.h"
-//#include "UserMessaging.h"
+#include "user_message.h"
 #include "bsp.h"
 #include "commAPI.h"
 #include "uart.h"
@@ -624,75 +619,6 @@ void _UcbWriteCal (uint16_t port,
 }
 
 /** ****************************************************************************
- * @name _UcbWriteApp
- * @brief Write data as 16 bit cells into an unlocked EEPROM.
- *
- * @param [in] port -  number request came in on, the reply will go out this port
- * @param [out] packetPtr - data part of packet
- * @retval N/A
- ******************************************************************************/
-static void _UcbWriteApp (uint16_t port, UcbPacketStruct    *ptrUcbPacket)
-#if 0
-{
-    uint32_t startAddress;
-    uint16_t bytesToWrite;
-
-    startAddress = (uint32_t)((ptrUcbPacket->payload[0] << 24) |
-                               ptrUcbPacket->payload[1] << 16  |
-                               ptrUcbPacket->payload[2] << 8   |
-                               ptrUcbPacket->payload[3]);
-
-    bytesToWrite  = ptrUcbPacket->payload[4];
-
-    /// verify that the packet length matches packet specification
-    if (ptrUcbPacket->payloadLength == (bytesToWrite + 5)) {
-        /// 0 means no errors
-        if (writeToEEPROMAppPartition(startAddress, bytesToWrite,
-                             &(ptrUcbPacket->payload[5])) != 0) {
-            ptrUcbPacket->payloadLength = 5;
-        } else {
-            _SetNak(port, ptrUcbPacket);
-        }
-    } else {
-        _SetNak(port, ptrUcbPacket);
-    }
-
-    HandleUcbTx(port, ptrUcbPacket);
-//    RestoreDelay_Watchdog();
-}
-#endif
-{
-    uint32_t startAddress;
-    uint8_t  wordsToWrite;
-    uint16_t bytesToWrite;
-// packet structure 
-// header   code  payload len  start addr  numbytes              crc 
-// 5555     5747  [x]          [yyyy]     [z]        [payload]   [cc]
-    startAddress = (uint32_t)((ptrUcbPacket->payload[0] << 24) |
-                               ptrUcbPacket->payload[1] << 16 |
-                               ptrUcbPacket->payload[2] << 8 |
-                               ptrUcbPacket->payload[3]);
-    wordsToWrite = ptrUcbPacket->payload[4];
-    bytesToWrite = (uint16_t)wordsToWrite;
-
-//    SetMaxDelay_Watchdog();
-
-    /// verify that the packet length matches packet specification
-    if ((ptrUcbPacket->payloadLength == (bytesToWrite + 5))) {
-
-		//if(!writeFlash(startAddress,&ptrUcbPacket->payload[5],bytesToWrite)){           //TODO:
-		if(writeFlash(startAddress,&ptrUcbPacket->payload[5],bytesToWrite)){           //TODO:
-            ptrUcbPacket->payloadLength = 5;
-        } else {
-            _SetNak(port, ptrUcbPacket);
-        }
-    } else {
-        _SetNak(port, ptrUcbPacket);
-    }
-	HandleUcbTx(port, ptrUcbPacket);
-//    RestoreDelay_Watchdog();	
-}
-/** ****************************************************************************
  * @name _UcbJump2BOOT
  * @brief
  * Trace:
@@ -850,7 +776,7 @@ void HandleUcbPacket (UcbPacketStruct *ptrUcbPacket)
 {
     int result;
 
-    ExternPortTypeEnum port = UART_USER;
+    uint16_t port = UART_USER;
     if (ptrUcbPacket)
     {
 		switch (ptrUcbPacket->packetType) {
@@ -866,7 +792,6 @@ void HandleUcbPacket (UcbPacketStruct *ptrUcbPacket)
             case UCB_J2IAP:
                 _UcbJump2BOOT (port, ptrUcbPacket); break;
             case UCB_J2APP:                                     //TODO:
-            case UCB_JUMP2_APP:
                 _UcbJump2APP (port, ptrUcbPacket); break; 
             case UCB_HARDWARE_TEST: 
                 _Ucb_HARDWARE_TEST (port, ptrUcbPacket); break;             
@@ -874,8 +799,6 @@ void HandleUcbPacket (UcbPacketStruct *ptrUcbPacket)
                 _UcbReadCal(port, ptrUcbPacket); break;
             case UCB_SOFTWARE_RESET:
                 _UcbSoftwareReset(port, ptrUcbPacket); break;
-            case UCB_WRITE_APP:
-                _UcbWriteApp(port, ptrUcbPacket); break;
 #ifndef BOOT_MODE
             case UCB_SET_FIELDS:
                 _UcbSetFields(port, ptrUcbPacket); break;
@@ -904,7 +827,6 @@ void HandleUcbPacket (UcbPacketStruct *ptrUcbPacket)
                 }
                 break;
 #endif // BOOT_MODE
-//			case UCB_READ_APP:break;
             default:
                 _UcbError(port, ptrUcbPacket); break;
                 break; /// default handler - unknown send NAK
@@ -912,43 +834,6 @@ void HandleUcbPacket (UcbPacketStruct *ptrUcbPacket)
     }
 }
 /* end HandleUcbPacket() */
-
-/** ****************************************************************************
- * @name _WriteMagAlignParamsToMemory
- * @brief writes the magnetic alignment parameters to the EEPROM
- * Trace: [SDD_HANDLE_PKT <-- SRC_HANDLE_PACKET]
- * @retval N/A
- ******************************************************************************/
-void WriteMagAlignParamsToMemory( uint16_t port,
-                                  UcbPacketStruct    *ptrUcbPacket )
-{
-    // Array sizes are based on maximum number of fields to change
-    uint16_t fieldId   [UCB_MAX_PAYLOAD_LENGTH / 4];
-    fieldId[0] = 0x0009;   // X-Axis Hard-Iron
-    fieldId[1] = 0x000A;   // Y-Axis Hard-Iron
-    fieldId[2] = 0x000B;   // Soft-Iron Scale-Ratio
-    fieldId[3] = 0x000E;   // Soft-Iron Angle
-
-    uint16_t fieldData [UCB_MAX_PAYLOAD_LENGTH / 4];
-    fieldData[0] = gConfiguration.hardIronBias[0];      // [G]
-    fieldData[1] = gConfiguration.hardIronBias[1];      // [G]
-    fieldData[2] = gConfiguration.softIronScaleRatio;   // [N/A]
-    fieldData[3] = gConfiguration.softIronAngle;        // [deg]
-
-    uint8_t numFields = 0x4;
-    ptrUcbPacket->payloadLength = 1 + 4*numFields;
-    ptrUcbPacket->payload[0]    = numFields;
-
-    // first two are field ID, second two are data
-    for( uint8_t fieldNum = 0; fieldNum < numFields; fieldNum++ ) {
-        ptrUcbPacket->payload[(fieldNum*numFields)+1] = fieldId[fieldNum] >> 8;
-        ptrUcbPacket->payload[(fieldNum*numFields)+2] = fieldId[fieldNum] & 0x00FF;
-        ptrUcbPacket->payload[(fieldNum*numFields)+3] = fieldData[fieldNum] >> 8;
-        ptrUcbPacket->payload[(fieldNum*numFields)+4] = fieldData[fieldNum] & 0x00FF;
-    }
-
-    _UcbWriteFields( port, ptrUcbPacket );
-}
 
 
 /** ****************************************************************************
@@ -975,57 +860,3 @@ void ProcessUserCommands (void)
 
 } /* end ProcessUcbCommands() */
 
-extern int get_input_packet_type();
-extern BOOL Fill_PingPacketPayload(uint8_t *payload, uint8_t *payloadLen);
-extern BOOL Fill_VersionPacketPayload(uint8_t *payload, uint8_t *payloadLen);
-__weak int HandleUserInputPacket(UcbPacketStruct *ptrUcbPacket)
-{
-    BOOL valid = TRUE;
-    int ret = USER_PACKET_OK;
-    /// call appropriate function based on packet type
-	switch (get_input_packet_type()) {
-		case USR_IN_PING:
-            {
-                uint8_t len;
-                Fill_PingPacketPayload(ptrUcbPacket->payload, &len);
-                ptrUcbPacket->payloadLength = len;
-            }
-            // leave all the same - it will be bounced back unchanged
-            break;
-		case USR_IN_GET_VERSION:
-            {
-                uint8_t len;
-                Fill_VersionPacketPayload(ptrUcbPacket->payload, &len);
-                ptrUcbPacket->payloadLength = len;
-            }
-            break;
-#if 1
-        case USR_IN_UPDATE_PARAM:
-             //UpdateUserParam((userParamPayload*)ptrUcbPacket->payload, &ptrUcbPacket->payloadLength);
-             break;
-        case USR_IN_SAVE_CONFIG:
-            // payload length does not change
-             //if(!SaveUserConfig())
-             {
-                valid = FALSE;
-             }
-             break;
-        case USR_IN_GET_ALL:
-             //if(!GetAllUserParams((allUserParamsPayload*)ptrUcbPacket->payload, &ptrUcbPacket->payloadLength))
-             {
-                valid = FALSE;
-             }
-             break;
-#endif
-        default:
-             /// default handler - unknown packet
-             valid = FALSE;
-             break;
-        }
-        if(!valid){
-             ptrUcbPacket->payloadLength = 0;
-             ret = USER_PACKET_ERROR;
-        }
-        ptrUcbPacket->packetType = UCB_USER_OUT;    // do not remove - done for proper packet routing
-        return ret;
-}

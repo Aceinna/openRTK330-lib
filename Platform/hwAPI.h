@@ -7,7 +7,7 @@
 #define __HW_API_H
 
 #include "stdint.h"
-#include "GlobalConstants.h"
+#include "constants.h"
 
 
 // GPIO - related fucntions

@@ -8,7 +8,7 @@
  *
  *****************************************************************************/
 /*******************************************************************************
-Copyright 2018 ACEINNA, INC
+Copyright 2020 ACEINNA, INC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,7 +27,8 @@ limitations under the License.
 #ifndef _CONFIG_API_H
 #define _GONFIG_API_H
 #include <stdint.h>
-#include "GlobalConstants.h"
+
+#include "constants.h"
 
 // serial port related functions
 int      configGetPacketRate(void);

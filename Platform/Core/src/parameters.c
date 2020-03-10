@@ -16,10 +16,11 @@
 //***************************
 #include <math.h>
 #include <stdint.h>
+
 #include "configuration.h"
 #include "parameters.h"
 #include "eepromAPI.h"
-#include "scaling.h"
+#include "constants.h"
 #include "qmath.h"
 #include "Indices.h"
 #ifndef SENSOR_UNUSED
@@ -39,7 +40,6 @@ UART_HandleTypeDef huart5;
 static ConfigurationStruct proposedRamConfiguration;
 static ConfigurationStruct proposedEepromConfiguration;
 ConfigurationStruct *proposedEepromConfigurationPtr = &proposedEepromConfiguration;
-extern void InitUserAlgorithm();
 float GetUnitTemp();
 
 static BOOL portConfigurationChanged; // port settings are to be changed
@@ -51,10 +51,6 @@ static BOOL portConfigurationChanged; // port settings are to be changed
 
 
 
-__weak void InitUserAlgorithm()
-{
-
-}
 /** ****************************************************************************
  * @name DefaultPortConfiguration
  * @brief Set initial ports:
@@ -141,9 +137,6 @@ BOOL CheckContPacketRate (UcbPacketType outputPacket,
             case UCB_TEST_0:
                 bytesPerPacket += UCB_TEST_0_LENGTH;
                 break;
-//            case UCB_TEST_1:
-//                bytesPerPacket += UCB_TEST_1_LENGTH;
-//                break;
             case UCB_FACTORY_1:
                 bytesPerPacket += UCB_FACTORY_1_LENGTH;
                 break;
@@ -153,21 +146,6 @@ BOOL CheckContPacketRate (UcbPacketType outputPacket,
             case UCB_FACTORY_M:
                 bytesPerPacket += UCB_FACTORY_M_LENGTH;
                 break;
-            case UCB_ANGLE_1:
-                bytesPerPacket += UCB_ANGLE_1_LENGTH;
-                break;
-//            case UCB_ANGLE_2:
-//                bytesPerPacket += UCB_ANGLE_2_LENGTH;
-//                break;
-//            case UCB_ANGLE_3:
-//                bytesPerPacket += UCB_ANGLE_3_LENGTH;
-//                break;
-//            case UCB_ANGLE_5:
-//                bytesPerPacket += UCB_ANGLE_5_LENGTH;
-//                break;
-//            case UCB_ANGLE_U:
-//                bytesPerPacket += UCB_ANGLE_U_LENGTH;
-//                break;
             case UCB_VERSION_DATA:
                 bytesPerPacket += UCB_VERSION_DATA_LENGTH;
                 break;
@@ -183,18 +161,6 @@ BOOL CheckContPacketRate (UcbPacketType outputPacket,
             case UCB_SCALED_M:
                 bytesPerPacket += UCB_SCALED_M_LENGTH;
                 break;
-//            case UCB_NAV_0:
-//                bytesPerPacket += UCB_NAV_0_LENGTH;
-//                break;
-//            case UCB_NAV_1:
-//                bytesPerPacket += UCB_NAV_1_LENGTH;
-//                break;
-//            case UCB_NAV_2:
-//                bytesPerPacket += UCB_NAV_2_LENGTH;
-//                break;
-//            case UCB_KT:
-//                bytesPerPacket += UCB_KT_LENGTH;
-//                break;
             default:
                 valid = FALSE;
         }
@@ -415,7 +381,6 @@ static uint8_t CheckFieldData (ConfigurationStruct *currentConfiguration,
                         /// add to valid list
                         validFields[validFieldIndex++]        = fieldId[fieldIndex];
                         // Set the flags to RESTART the algorithm
-                        InitUserAlgorithm();
                     }
                     break;
                 case OFFSET_ROLL_ALIGN_FIELD_ID:

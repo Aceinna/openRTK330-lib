@@ -1,22 +1,16 @@
+#include <string.h>
+#include <stdlib.h>
+
 #include "httpd.h"
 #include "lwip/tcp.h"
 #include "fs.h"
 #include "LwipComm.h"
-#include "appVersion.h"
-#include <string.h>
-#include <stdlib.h>
+#include "app_version.h"
 #include "stm32f4xx_hal.h"
 #include "ntripClient.h"
-
 #include "calibrationAPI.h"
 #include "platformAPI.h"
-#include "UserConfiguration.h"
-
-
-const char radioRTKType[2][15] = {
-	"radioLocalRTK",
-    "radioCloudRTK",
-};
+#include "user_config.h"
 
 const char radioEthMode[2][15] = {
 	"radioDhcp",
@@ -283,22 +277,13 @@ const char *NTRIP_CONFIG_CGI_Handler(int iIndex, int iNumParams, char *pcParam[]
 
 const char *USER_CONFIG_CGI_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
 {
-	int index_userUartBaudRate, index_userPacketType, index_userPacketRate;
-	int index_lpfAccelFilterFreq, index_lpfRateFilterFreq;
-	int index_orientation, index_profile;
+    int index_profile;
 	int index_leverArmBx, index_leverArmBy, index_leverArmBz;
 	int index_pointOfInterestBx, index_pointOfInterestBy, index_pointOfInterestBz;
 	int index_rotationRbvx, index_rotationRbvy, index_rotationRbvz;
-	uint8_t ori[7] = "+x+y+z";
 
-	if (iNumParams == 16)
+	if (iNumParams == 10)
 	{
-		index_userUartBaudRate = FindCGIParameter("userUartBaudRate", pcParam, iNumParams);
-		index_userPacketType = FindCGIParameter("userPacketType", pcParam, iNumParams);
-		index_userPacketRate = FindCGIParameter("userPacketRate", pcParam, iNumParams);
-		index_lpfAccelFilterFreq = FindCGIParameter("lpfAccelFilterFreq", pcParam, iNumParams);
-		index_lpfRateFilterFreq = FindCGIParameter("lpfRateFilterFreq", pcParam, iNumParams);
-		index_orientation = FindCGIParameter("orientation", pcParam, iNumParams);
 		index_profile = FindCGIParameter("profile", pcParam, iNumParams);
 		index_leverArmBx = FindCGIParameter("leverArmBx", pcParam, iNumParams);
 		index_leverArmBy = FindCGIParameter("leverArmBy", pcParam, iNumParams);
@@ -310,21 +295,10 @@ const char *USER_CONFIG_CGI_Handler(int iIndex, int iNumParams, char *pcParam[],
 		index_rotationRbvy = FindCGIParameter("rotationRbvy", pcParam, iNumParams);
 		index_rotationRbvz = FindCGIParameter("rotationRbvz", pcParam, iNumParams);
 
-		if (index_userUartBaudRate != -1 && index_userPacketType != -1 && index_userPacketRate != -1 
-			&& index_lpfAccelFilterFreq != -1 && index_lpfRateFilterFreq != -1 
-			&& index_orientation != -1 && index_profile != -1
-			&& index_leverArmBx != -1 && index_leverArmBy != -1 && index_leverArmBz != -1
+		if (index_profile != -1 && index_leverArmBx != -1 && index_leverArmBy != -1 && index_leverArmBz != -1
 			&& index_pointOfInterestBx != -1 && index_pointOfInterestBy != -1 && index_pointOfInterestBz != -1
 			&& index_rotationRbvx != -1 && index_rotationRbvy != -1 && index_rotationRbvz != -1)
 		{
-			gUserConfiguration.userUartBaudRate = atol(pcValue[index_userUartBaudRate]);
-            memset(gUserConfiguration.userPacketType, 0, sizeof(gUserConfiguration.userPacketType));
-			strcpy((char*)gUserConfiguration.userPacketType, (const char*)pcValue[index_userPacketType]);
-			gUserConfiguration.userPacketRate = atol(pcValue[index_userPacketRate]);
-			gUserConfiguration.lpfAccelFilterFreq = atol(pcValue[index_lpfAccelFilterFreq]);
-			gUserConfiguration.lpfRateFilterFreq = atol(pcValue[index_lpfRateFilterFreq]);
-            memset(gUserConfiguration.orientation, 0, sizeof(gUserConfiguration.orientation));
-			strcpy((char*)gUserConfiguration.orientation, (const char*)ori);
 			gUserConfiguration.profile = atoi(pcValue[index_profile]);
 			gUserConfiguration.leverArmBx = atof(pcValue[index_leverArmBx]);
 			gUserConfiguration.leverArmBy = atof(pcValue[index_leverArmBy]);
@@ -401,13 +375,7 @@ const char *USER_CONFIG_JS_Handler(int iIndex, int iNumParams, char *pcParam[], 
 	memset(http_response, 0, HTTP_JS_RESPONSE_SIZE);
 	memset(http_response_body, 0, HTTP_JS_RESPONSE_SIZE);
 
-	sprintf((char *)http_response_body, "UserConfigCallback({\"userUartBaudRate\":\"%llu\",\"userPacketType\":\"%s\",\"userPacketRate\":\"%llu\",\"lpfAccelFilterFreq\":\"%llu\",\"lpfRateFilterFreq\":\"%llu\",\"orientation\":\"%s\",\"profile\":\"%lu\",\"leverArmBx\":\"%f\",\"leverArmBy\":\"%f\",\"leverArmBz\":\"%f\",\"pointOfInterestBx\":\"%f\",\"pointOfInterestBy\":\"%f\",\"pointOfInterestBz\":\"%f\",\"rotationRbvx\":\"%f\",\"rotationRbvy\":\"%f\",\"rotationRbvz\":\"%f\"})",
-			gUserConfiguration.userUartBaudRate,
-			gUserConfiguration.userPacketType,
-			gUserConfiguration.userPacketRate,
-			gUserConfiguration.lpfAccelFilterFreq,
-			gUserConfiguration.lpfRateFilterFreq,
-			gUserConfiguration.orientation,
+	sprintf((char *)http_response_body, "UserConfigCallback({\"profile\":\"%lu\",\"leverArmBx\":\"%f\",\"leverArmBy\":\"%f\",\"leverArmBz\":\"%f\",\"pointOfInterestBx\":\"%f\",\"pointOfInterestBy\":\"%f\",\"pointOfInterestBz\":\"%f\",\"rotationRbvx\":\"%f\",\"rotationRbvy\":\"%f\",\"rotationRbvz\":\"%f\"})",
 			gUserConfiguration.profile,
 			gUserConfiguration.leverArmBx,
 			gUserConfiguration.leverArmBy,

@@ -10,7 +10,7 @@
  *        external communication port structures
  *****************************************************************************/
 /*******************************************************************************
-Copyright 2018 ACEINNA, INC
+Copyright 2020 ACEINNA, INC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,15 +28,11 @@ limitations under the License.
 #ifndef EXTERN_PORT_H
 #define EXTERN_PORT_H
 
-
 #include <stdint.h>
-#include "ucb_packet_struct.h"
-#include "GlobalConstants.h"
-typedef uint16_t       ExternPortTypeEnum;
+#include "constants.h"
+#include "ucb_packet.h"
 
-extern void   	ExternPortInit         (void);
 extern BOOL     HandleUcbRx (UcbPacketStruct *ptrUcbPacket);
 extern void     HandleUcbTx (int port, UcbPacketStruct *ptrUcbPacket);
-extern void	 	ExternPortWaitOnTxIdle (void);
 
 #endif

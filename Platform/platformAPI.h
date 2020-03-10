@@ -8,7 +8,7 @@
  *
  *****************************************************************************/
 /*******************************************************************************
-Copyright 2018 ACEINNA, INC
+Copyright 2020 ACEINNA, INC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,9 +27,8 @@ limitations under the License.
 #ifndef _PLATFORM_API_H
 #define _PLATFORM_API_H
 #include <stdint.h>
-#include "GlobalConstants.h"
+#include "constants.h"
 
-// NEEDS TO BE CHECKED
 BOOL eepromLocked(void);
 BOOL lockEeprom(void);
 BOOL unlockEeprom(void);
@@ -65,14 +64,6 @@ int      platformEnableExtSync(BOOL enable);
 void     platformUpdateInterfaceTestStatus(BOOL fGood);
 void     platformSetMode(BOOL isBoot);
 BOOL     platformIsInBootMode();
-BOOL platformIsGpsPPSUsed(void);
-void platformEnableGpsPps(BOOL enable);
 
-#define   kick_dog()
-
-#define UART_CHANNEL_NONE -1  // undefined channel
-#define UART_CHANNEL_0     0  // pins 3 and 4 on the 20-pin connector. NOTE: not available in SPI interface mode
-#define UART_CHANNEL_1     1  // pins 5 and 6 on the 20-pin connector. NOTE: not available in SPI interface mode 
-#define UART_CHANNEL_2     2  // pins 17 and 19 on the 20-pin connector. Always available
 
 #endif

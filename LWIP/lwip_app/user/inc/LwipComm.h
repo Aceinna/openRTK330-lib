@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include "lwipopts.h"
 #include "lwip/ip_addr.h"
-#include "UserConfiguration.h"
+#include "user_config.h"
 
 
 /*Static IP ADDRESS*/

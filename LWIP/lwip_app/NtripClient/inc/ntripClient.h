@@ -8,7 +8,7 @@
 #include "LwipComm.h"
 #include "lwip/sys.h"
 #include "lwip/api.h"
-#include "RingBuffer.h"
+#include "utils.h"
 
 // ntrip buffer size
 #define NTRIP_TX_BUFSIZE 2000
@@ -39,8 +39,8 @@ extern uint8_t NTRIP_client_start;
 extern uint8_t NTRIP_client_state;
 extern uint8_t NTRIP_base_stream;
 
-extern FIFO_Type ntrip_tx_fifo;
-extern FIFO_Type ntrip_rx_fifo;
+extern fifo_type ntrip_tx_fifo;
+extern fifo_type ntrip_rx_fifo;
 extern uint8_t ntripTxBuf[NTRIP_TX_BUFSIZE];
 extern uint8_t ntripRxBuf[NTRIP_RX_BUFSIZE];
 extern uint16_t ntripTxLen;
@@ -50,11 +50,11 @@ extern uint32_t ntripStreamCount;
 #define NTRIP_STREAM_CONNECTED_MAX_COUNT 20
 
 void Fill_EthLocalRTKPacketPayload(uint8_t* payload, uint16_t *payloadLen);
-void Fill_EthCloudRTKPacketPayload(uint8_t* payload, uint16_t *payloadLen);
 
-err_t NTRIP_GET_Data(uint8_t *rxBuf, uint16_t *rxLen);
-err_t NTRIP_Recieve_Data(FIFO_Type* fifo);
-err_t NTRIP_Write_Data(uint8_t *txBuf, uint16_t txLen, uint8_t apiflags);
+err_t ntrip_read_data(uint8_t *rxBuf, uint16_t *rxLen);
+err_t ntrip_push_rx_data(fifo_type* fifo);
+err_t ntrip_write_data(uint8_t *txBuf, uint16_t txLen, uint8_t apiflags);
+uint8_t ntrip_push_tx_data(uint8_t* buf, uint16_t len);
 void ntrip_link_down(void);
 void NTRIP_interface(void);
 

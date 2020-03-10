@@ -1,9 +1,10 @@
-#include "ntripClient.h"
 #include <string.h>
+
+#include "ntripClient.h"
 #include "base64.h"
 #include "stm32f4xx_hal.h"
 #include "osapi.h"
-#include "UserConfiguration.h"
+#include "user_config.h"
 #include "calibrationAPI.h"
 #include "platformAPI.h"
 
@@ -15,8 +16,8 @@ uint8_t NTRIP_client_state = NTRIP_STATE_OFF;
 uint8_t NTRIP_base_stream = BSAE_ON;
 
 // ntrip buf
-FIFO_Type ntrip_tx_fifo;
-FIFO_Type ntrip_rx_fifo;
+fifo_type ntrip_tx_fifo;
+fifo_type ntrip_rx_fifo;
 CCMRAM uint8_t ntripTxBuf[NTRIP_TX_BUFSIZE];
 CCMRAM uint8_t ntripRxBuf[NTRIP_RX_BUFSIZE];
 uint16_t ntripTxLen = 0;
@@ -74,41 +75,13 @@ void Fill_EthLocalRTKPacketPayload(uint8_t *payload, uint16_t *payloadLen)
 }
 
 /** ***************************************************************************
- * @name Fill_EthCloudRTKPacketPayload() 
- * @brief fill Cloud RTK Request
- * @param *payload point to buffer
- *        *payloadLen point to buffer length
- * @retval N/A
- ******************************************************************************/
-void Fill_EthCloudRTKPacketPayload(uint8_t *payload, uint16_t *payloadLen)
-{
-    uint8_t sn[15];
-
-    strcpy((char *)payload, "SOURCE ");
-    strcat((char *)payload, (const char *)gUserConfiguration.password);
-    strcat((char *)payload, " ");
-    strcat((char *)payload, (const char *)gUserConfiguration.mountPoint);
-    strcat((char *)payload, "\r\n");
-    
-    strcat((char *)payload, "Aceinna-Sn:");
-    sprintf((char *)sn, "%ld", GetUnitSerialNum());
-    strcat((char *)payload, (const char *)sn);
-    strcat((char *)payload, "\r\n");
-    
-    strcat((char *)payload, "Source-Agent: NTRIP Aceinna/0.1\r\n\r\n");
-
-    *payloadLen = strlen((const char *)payload);
-}
-
-
-/** ***************************************************************************
- * @name NTRIP_GET_Data() 
+ * @name ntrip_read_data() 
  * @brief ntrip client revieve function
  * @param *rxBuf point to ntrip client recieve buffer
  *        *rxLen point to buffer length
  * @retval success(ERR_OK) fail(other)
  ******************************************************************************/
-err_t NTRIP_GET_Data(uint8_t *rxBuf, uint16_t *rxLen)
+err_t ntrip_read_data(uint8_t *rxBuf, uint16_t *rxLen)
 {
 	struct netbuf *rxNetbuf;
 	uint16_t len = 0;
@@ -137,7 +110,7 @@ err_t NTRIP_GET_Data(uint8_t *rxBuf, uint16_t *rxLen)
 	if (ERR_IS_FATAL(err))
 	{
 #ifdef DEVICE_DEBUG
-		printf("NTRIP_GET_Data fail %d\r\n", err);
+		printf("ntrip_read_data fail %d\r\n", err);
 #endif
 		NTRIP_client_state = NTRIP_STATE_CONNECT;
 	}
@@ -145,7 +118,13 @@ err_t NTRIP_GET_Data(uint8_t *rxBuf, uint16_t *rxLen)
 	return err;
 }
 
-err_t NTRIP_Recieve_Data(FIFO_Type* fifo)
+/** ***************************************************************************
+ * @name ntrip_push_rx_data() 
+ * @brief ntrip client revieve data and push to rx fifo
+ * @param *fifo point to rx fifo
+ * @retval success(ERR_OK) fail(other)
+ ******************************************************************************/
+err_t ntrip_push_rx_data(fifo_type* fifo)
 {
 	struct netbuf *rxNetbuf;
 	struct pbuf *q;
@@ -158,18 +137,18 @@ err_t NTRIP_Recieve_Data(FIFO_Type* fifo)
 		taskENTER_CRITICAL();
 		for (q = rxNetbuf->p; q != NULL; q = q->next)
 		{
-            FifoPush(fifo, q->payload, q->len);
+            fifo_push(fifo, q->payload, q->len);
             len += q->len;
 		}
 		taskEXIT_CRITICAL();
-        //printf("NTRIP_Recieve_Data=%d\r\n", len);
+        //printf("ntrip_push_rx_data=%d\r\n", len);
 	}
 	netbuf_delete(rxNetbuf);
 
 	if (ERR_IS_FATAL(err))
 	{
 #ifdef DEVICE_DEBUG
-		printf("NTRIP_Recieve_Data fail %d\r\n", err);
+		printf("ntrip_push_rx_data fail %d\r\n", err);
 #endif
 		NTRIP_client_state = NTRIP_STATE_CONNECT;
 	}
@@ -178,14 +157,14 @@ err_t NTRIP_Recieve_Data(FIFO_Type* fifo)
 }
 
 /** ***************************************************************************
- * @name NTRIP_Write_Data
+ * @name ntrip_write_data
  * @brief ntrip client write function
  * @param *txBuf point to ntrip client send buffer
  *        [in] txLen buffer length
  * 		  [in] apiflags write flag
  * @retval success(ERR_OK) fail(other)
  ******************************************************************************/
-err_t NTRIP_Write_Data(uint8_t *txBuf, uint16_t txLen, uint8_t apiflags)
+err_t ntrip_write_data(uint8_t *txBuf, uint16_t txLen, uint8_t apiflags)
 {
 	err_t err;
 
@@ -193,7 +172,7 @@ err_t NTRIP_Write_Data(uint8_t *txBuf, uint16_t txLen, uint8_t apiflags)
 	if (ERR_IS_FATAL(err))
 	{
 #ifdef DEVICE_DEBUG
-		printf("NTRIP_Write_Data fail %d\r\n", err);
+		printf("ntrip_write_data fail %d\r\n", err);
 #endif
 		if (NTRIP_client_state == NTRIP_STATE_REQUEST || NTRIP_client_state == NTRIP_STATE_INTERACTIVE)
 		{
@@ -202,6 +181,23 @@ err_t NTRIP_Write_Data(uint8_t *txBuf, uint16_t txLen, uint8_t apiflags)
 	}
     
 	return err;
+}
+
+/** ***************************************************************************
+ * @name ntrip_push_tx_data
+ * @brief push data to tx fifo
+ * @param *buf point to send data buffer
+ *        len send length
+ * @retval success(1) fail(0)
+ ******************************************************************************/
+uint8_t ntrip_push_tx_data(uint8_t* buf, uint16_t len)
+{
+    if (NTRIP_client_start == NTRIP_START_ON && NTRIP_client_state == NTRIP_STATE_INTERACTIVE)
+    {
+        fifo_push(&ntrip_tx_fifo, (uint8_t*)buf, len);
+        return 1;
+    }
+    return 0;
 }
 
 void ntrip_link_down(void)
@@ -292,21 +288,14 @@ void NTRIP_interface(void)
         printf("ntrip:request...\r\n");
 #endif
         OS_Delay(100);
-        if (gUserConfiguration.rtkType == LocalRTK)
-        {
-            Fill_EthLocalRTKPacketPayload(ntripTxBuf, &txLen);
-        }
-        else if (gUserConfiguration.rtkType == CloudRTK)
-        {
-            Fill_EthCloudRTKPacketPayload(ntripTxBuf, &txLen);
-        }
+        Fill_EthLocalRTKPacketPayload(ntripTxBuf, &txLen);
 
-        err = NTRIP_Write_Data(ntripTxBuf, txLen, NETCONN_COPY);
+        err = ntrip_write_data(ntripTxBuf, txLen, NETCONN_COPY);
         if (err == ERR_OK)
         {
             OS_Delay(1000);
             uint16_t rxLen = 0;
-            err = NTRIP_GET_Data(ntripRxBuf, &rxLen);
+            err = ntrip_read_data(ntripRxBuf, &rxLen);
             if (err == ERR_OK)
             {
                 ntripRxBuf[rxLen] = 0;
@@ -323,30 +312,12 @@ void NTRIP_interface(void)
         break;
 
     case NTRIP_STATE_INTERACTIVE:
-        if (gUserConfiguration.rtkType == LocalRTK) // LocalRTK
-        {
-            NTRIP_Recieve_Data(&ntrip_rx_fifo);
+        ntrip_push_rx_data(&ntrip_rx_fifo);
 
-            txLen = FifoGet(&ntrip_tx_fifo, txBuf, 512);
-            if (txLen)
-            {
-                NTRIP_Write_Data(txBuf, txLen, NETCONN_NOFLAG);
-            }
-        }
-        else // CloudRTK
+        txLen = fifo_get(&ntrip_tx_fifo, txBuf, 512);
+        if (txLen)
         {
-            err = NTRIP_GET_Data(ntripRxBuf, &ntripRxLen);
-            if (err == ERR_OK)
-            {
-                if (ntripRxLen)
-                {
-                    ntripRxBuf[ntripRxLen] = 0;
-#ifdef DEVICE_DEBUG
-                    printf("%s", ntripRxBuf); //print #GPGGA
-#endif
-                    ntripRxLen = 0;
-                }
-            }
+            ntrip_write_data(txBuf, txLen, NETCONN_NOFLAG);
         }
         break;
 
