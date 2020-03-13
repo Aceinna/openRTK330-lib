@@ -7,7 +7,7 @@
 
 /* ---------- Memory options ---------- */
 #define MEM_ALIGNMENT                  4
-#define MEM_SIZE                       (10*1024)
+#define MEM_SIZE                       (12*1024)
 #define MEMP_NUM_PBUF                  16
 #define MEMP_NUM_UDP_PCB               4
 #define MEMP_NUM_TCP_PCB               14
@@ -93,10 +93,11 @@
 
 /*
    ----------------------------------
-   ---------- RCV Time Out ----------
+   -------- RCV/SND Time Out --------
    ----------------------------------
 */
 #define LWIP_SO_RCVTIMEO               1
+#define LWIP_SO_SNDTIMEO               1
 
 /*
    ---------------------------------

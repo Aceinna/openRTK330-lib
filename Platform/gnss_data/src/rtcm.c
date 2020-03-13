@@ -1419,6 +1419,77 @@ static int add_geph(geph_t* eph, nav_t* nav)
 
 	return ret;
 }
+
+RTCM_999_Receiver_PVT_STRUCT RTCM_999_Receiver_PVT;
+void decode_999_Receive_PVT(rtcm_t *rtcm, obs_t *obs)
+{
+    int i = 44;
+    RTCM_999_Receiver_PVT.Reference_Station_ID = rtcm_getbitu(rtcm->buff, i, 12);
+    i += 12;
+    RTCM_999_Receiver_PVT.Reserved_ITRF = rtcm_getbitu(rtcm->buff, i, 6);
+    i += 6;
+    RTCM_999_Receiver_PVT.GPS_Quality_Indicator = rtcm_getbitu(rtcm->buff, i, 4);
+    i += 4;
+    RTCM_999_Receiver_PVT.Number_satellites_use = rtcm_getbitu(rtcm->buff, i, 8);
+    i += 8;
+    RTCM_999_Receiver_PVT.Number_satellites_view = rtcm_getbitu(rtcm->buff, i, 8);
+    i += 8;
+    RTCM_999_Receiver_PVT.HDOP = (float)rtcm_getbitu(rtcm->buff, i, 8) * 0.1;
+    i += 8;
+    RTCM_999_Receiver_PVT.VDOP = (float)rtcm_getbitu(rtcm->buff, i, 8) * 0.1;
+    i += 8;
+    RTCM_999_Receiver_PVT.PDOP = (float)rtcm_getbitu(rtcm->buff, i, 8) * 0.1;
+    i += 8;
+    RTCM_999_Receiver_PVT.Geoidal_separation = (float)rtcm_getbitu(rtcm->buff, i, 15) * 0.01;
+    i += 15;
+    RTCM_999_Receiver_PVT.Age_Differentials = rtcm_getbitu(rtcm->buff, i, 24);
+    i += 24;
+    RTCM_999_Receiver_PVT.Differential_Reference_Station_ID = rtcm_getbitu(rtcm->buff, i, 12);
+    i += 12;
+    RTCM_999_Receiver_PVT.GNSS_ID = rtcm_getbitu(rtcm->buff, i, 4);
+    i += 4;
+    RTCM_999_Receiver_PVT.GNSS_Epoch_Time = rtcm_getbitu(rtcm->buff, i, 30);
+    i += 30;
+    RTCM_999_Receiver_PVT.Extended_Week_Number = rtcm_getbitu(rtcm->buff, i, 16);
+    i += 16;
+    RTCM_999_Receiver_PVT.Leap_Seconds = rtcm_getbitu(rtcm->buff, i, 8);
+    i += 8;
+    RTCM_999_Receiver_PVT.Antenna_Position_ECEF_XYZ[0] = (double)rtcm_getbits_38(rtcm->buff, i) *0.0001;
+    i += 38;
+    RTCM_999_Receiver_PVT.Antenna_Position_ECEF_XYZ[1] = (double)rtcm_getbits_38(rtcm->buff, i) *0.0001;
+    i += 38;
+    RTCM_999_Receiver_PVT.Antenna_Position_ECEF_XYZ[2] = (double)rtcm_getbits_38(rtcm->buff, i) *0.0001;
+    i += 38;
+    RTCM_999_Receiver_PVT.Antenna_Velocity_ECEF_X = (float)rtcm_getbits(rtcm->buff, i, 32) * 0.000001;
+    i += 32;
+    RTCM_999_Receiver_PVT.Antenna_Velocity_ECEF_Y = (float)rtcm_getbits(rtcm->buff, i, 32) * 0.000001;
+    i += 32;
+    RTCM_999_Receiver_PVT.Antenna_Velocity_ECEF_Z = (float)rtcm_getbits(rtcm->buff, i, 32) * 0.000001;
+    i += 32;
+
+	uint8_t j;
+	for (j = 0; j < 3; j++)
+	{
+		obs->pos[j] = RTCM_999_Receiver_PVT.Antenna_Position_ECEF_XYZ[j];
+	}    
+}
+
+static int decode_type999(rtcm_t *rtcm, obs_t *obs)
+{
+
+    int i = 24;
+    RTCM_999_Receiver_PVT.Massage_Number = rtcm_getbitu(rtcm->buff, i, 12);
+    i += 12;
+    RTCM_999_Receiver_PVT.Sbu_Type_ID = rtcm_getbitu(rtcm->buff, i, 8);
+    //printf("ID = %d\r\n", RTCM_999_Receiver_PVT.Sbu_Type_ID);
+    i += 8;
+    if (RTCM_999_Receiver_PVT.Sbu_Type_ID == 4)
+    {
+        decode_999_Receive_PVT(rtcm, obs);
+    }
+    return 0;
+}
+
 /* decode type 1001-1004 message header --------------------------------------*/
 static int decode_head1001(rtcm_t *rtcm, obs_t *obs, int *sync)
 {
@@ -1673,10 +1744,10 @@ static int decode_type1006(rtcm_t *rtcm, obs_t *obs)
     if (!test_staid(obs, staid))
         return -1;
 
-    for (j = 0; j < 3; j++)
-    {
-        obs->pos[j] = rr[j] * 0.0001;
-    }
+    // for (j = 0; j < 3; j++)
+    // {
+    //     obs->pos[j] = rr[j] * 0.0001;
+    // }
 
     return 5;
 }
@@ -4333,6 +4404,9 @@ int decode_rtcm3(rtcm_t *rtcm, obs_t *obs, nav_t *nav)
     trace(3, "decode_rtcm3: len=%3d type=%d\n", rtcm->len, type);
     switch (type)
     {
+    case 999:
+        ret = decode_type999(rtcm, obs);
+        break;
     case 1001:
         ret = decode_type1001(rtcm, obs);
         break; /* not supported */
@@ -4828,6 +4902,10 @@ extern int input_rtcm3(unsigned char data, unsigned int stnID, gnss_rtcm_t *gnss
         nav = &gnss->nav;
         obs = gnss->obs + stnID;
         ret = input_rtcm3_data(rtcm, data, obs, nav);
+
+        if (stnID == BASE && rtcm->time.time == 0) {
+            rtcm->time.time = gnss->rcv[ROVER].time.time;
+        }
     }
 
     return ret;

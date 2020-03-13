@@ -1,6 +1,6 @@
 {
 	"name": "OpenRTK-base-library",
- 	"version": "1.0.2",
+ 	"version": "1.0.1",
  	"description": "OpenRTK Base Library",
     "keywords": "sensors, RTK, INS, AI, automotive, navigation",
  	"repository":
@@ -25,7 +25,7 @@
 			"-I LWIP/lwip-1.4.1/src/include/netif",
 			"-I LWIP/lwip_app/user/inc",
 			"-I LWIP/lwip_app/webserver/inc",
-			"-I LWIP/lwip_app/NtripClient/inc" ,
+			"-I LWIP/lwip_app/ntrip/inc" ,
 			"-I LWIP/",
 
 			"-I Platform/",

@@ -127,7 +127,7 @@ static void timer_isr_if(TIM_HandleTypeDef* timer)
                 g_MCU_time.msec = 0;
                 g_MCU_time.time ++;
             }
-            if(g_MCU_time.msec % 20 == 0)
+            if(g_MCU_time.msec % 10 == 0)
             {
                 release_sem(g_sem_imu_data_acq);
             }  

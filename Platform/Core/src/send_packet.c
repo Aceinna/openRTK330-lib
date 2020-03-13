@@ -1,21 +1,20 @@
 /** ***************************************************************************
  * @file send_packet.c UCB callbacks for assembling then sending serial packets
- * to NAV-VIEW.
- * @brief add message to be handled to send_packet() including callback name
- *        then add callback fcn to load the data and send the message.
- * @Author
- * @date   September, 2008
- * @brief  Copyright (c) 2013, 2014 All Rights Reserved.
+ * 
+ * THIS CODE AND INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY
+ * KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
+ * PARTICULAR PURPOSE.
+ *
+ *****************************************************************************/
+/*******************************************************************************
+ *  Copyright 2020 ACEINNA, INC
  *
  * THIS CODE AND INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY
  * KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
  * PARTICULAR PURPOSE.
  *
- * @brief this is the serial send handler for the Nav View data link
-* HISTORY***********************************************************************
-* 15/10/2019  |                                             | Daich
-* Description: #include "bsp.h" to use DelayMs
 *******************************************************************************/
 
 //****************************
@@ -525,21 +524,18 @@ void SendUcbPacket(uint16_t port,
  * @param [Out] N/A
  * @retval N/A
  ******************************************************************************/
-void sendP1Packet(uint8_t gps_update);
-void SendContinuousPacket(int dacqRate)
+void SendContinuousPacket()
 {
-    // here we come at 200 Hz
+    // here we come at 100 Hz
     uint8_t type [UCB_PACKET_TYPE_LENGTH];
     uint16_t divider = configGetPacketRateDivider(gConfiguration.packetRateDivider);
     int port = 0;
 
-    if (divider < 4)
-    {
-        divider = 4; // 50hz
+    if (divider < 2){
+        divider = 2;
     }
-    divider = divider / 4;
-    //sendP1Packet(get_gpsUpdate_state());    //send P1 packet 50Hz from UART_DEBUG
-    //divider = 1; 50hz
+    divider = divider / 2;
+
     if  (divider != 0) { ///< check for quiet mode
         if (divideCount == 1) {
             gConfiguration.packetCode = 0x7331; //s1
@@ -549,16 +545,12 @@ void SendContinuousPacket(int dacqRate)
 
             /// set continuous output packet type based on configuration
             continuousUcbPacket.packetType = UcbPacketBytesToPacketType(type);
-//            if (continuousUcbPacket.packetType != UCB_USER_OUT)
-            {
-                SendUcbPacket(UART_USER, &continuousUcbPacket);
-            }
+            SendUcbPacket(UART_USER, &continuousUcbPacket);
+
             divideCount = divider;
-        } else 
-        {
+        } else {
             --divideCount;
         }
     }
-
-} /* end ProcessContUcbPkt() */
+} 
 

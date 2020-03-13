@@ -1,13 +1,11 @@
 #include "base64.h"
 #include "string.h"
 
-uint8_t *base64_encode(uint8_t *str)
+void base64_encode(uint8_t *str, uint8_t *res)
 {
-    long len;
-    long str_len;
-    unsigned char *res;
-    int i, j;
-    unsigned char base64_table[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    uint32_t len, str_len;
+    uint16_t i, j;
+    uint8_t base64_table[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
     str_len = strlen((const char*)str);
     if (str_len % 3 == 0)
@@ -15,7 +13,6 @@ uint8_t *base64_encode(uint8_t *str)
     else
         len = (str_len / 3 + 1) * 4;
 
-    res = malloc(sizeof(unsigned char) * len + 1);
     res[len] = '\0';
 
     for (i = 0, j = 0; i < len - 2; j += 3, i += 4)
@@ -36,11 +33,9 @@ uint8_t *base64_encode(uint8_t *str)
         res[i - 1] = '=';
         break;
     }
-
-    return res;
 }
 
-uint8_t *bae64_decode(uint8_t *code)
+void bae64_decode(uint8_t *code, uint8_t *res)
 {
     int table[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -56,7 +51,6 @@ uint8_t *bae64_decode(uint8_t *code)
                    45, 46, 47, 48, 49, 50, 51};
     long len;
     long str_len;
-    unsigned char *res;
     int i, j;
 
     len = strlen((const char*)code);
@@ -76,6 +70,4 @@ uint8_t *bae64_decode(uint8_t *code)
         res[j + 1] = (((unsigned char)table[code[i + 1]]) << 4) | (((unsigned char)table[code[i + 2]]) >> 2);
         res[j + 2] = (((unsigned char)table[code[i + 2]]) << 6) | ((unsigned char)table[code[i + 3]]);       
     }
-
-    return res;
 }

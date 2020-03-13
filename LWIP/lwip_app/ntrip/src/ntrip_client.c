@@ -1,41 +1,38 @@
 #include <string.h>
 
-#include "ntripClient.h"
+#include "ntrip_client.h"
 #include "base64.h"
 #include "stm32f4xx_hal.h"
 #include "osapi.h"
 #include "user_config.h"
 #include "calibrationAPI.h"
 #include "platformAPI.h"
+#include "uart.h"
 
 
 // ntrip
 struct netconn *Ntrip_client = NULL;
-uint8_t NTRIP_client_start = NTRIP_START_ON;
 uint8_t NTRIP_client_state = NTRIP_STATE_OFF;
-uint8_t NTRIP_base_stream = BSAE_ON;
 
 // ntrip buf
 fifo_type ntrip_tx_fifo;
 fifo_type ntrip_rx_fifo;
 CCMRAM uint8_t ntripTxBuf[NTRIP_TX_BUFSIZE];
 CCMRAM uint8_t ntripRxBuf[NTRIP_RX_BUFSIZE];
-uint16_t ntripTxLen = 0;
-uint16_t ntripRxLen = 0;
 uint32_t ntripStreamCount = NTRIP_STREAM_CONNECTED_MAX_COUNT;
 
 /** ***************************************************************************
- * @name Fill_EthLocalRTKPacketPayload() 
+ * @name fill_localrtk_request_payload() 
  * @brief fill Local RTK Request
  * @param *payload point to buffer
  *        *payloadLen point to buffer length
  * @retval N/A
  ******************************************************************************/
-void Fill_EthLocalRTKPacketPayload(uint8_t *payload, uint16_t *payloadLen)
+void fill_localrtk_request_payload(uint8_t *payload, uint16_t *payloadLen)
 {
     uint8_t temp[25];
 
-    strcpy((char *)payload, "GET ");
+    strcpy((char *)payload, "GET /");
     strcat((char *)payload, (const char *)gUserConfiguration.mountPoint);
     strcat((char *)payload, " HTTP/1.1\r\n");
     strcat((char *)payload, "User-Agent: NTRIP Aceinna/0.1\r\n");
@@ -61,14 +58,13 @@ void Fill_EthLocalRTKPacketPayload(uint8_t *payload, uint16_t *payloadLen)
     strcat((char *)payload, "Authorization: Basic ");
 	
     uint8_t key[100];
+    uint8_t base64_buf[128];
     strcpy((char *)key, (const char *)gUserConfiguration.username);
     strcat((char *)key, ":");
     strcat((char *)key, (const char *)gUserConfiguration.password);
-    uint8_t *buf = base64_encode(key);
+    base64_encode(key, base64_buf);
 
-    strcat((char *)payload, (const char *)buf);
-    free(buf);
-
+    strcat((char *)payload, (const char *)base64_buf);
     strcat((char *)payload, "\r\n\r\n");
     
     *payloadLen = strlen((const char *)payload);
@@ -192,7 +188,7 @@ err_t ntrip_write_data(uint8_t *txBuf, uint16_t txLen, uint8_t apiflags)
  ******************************************************************************/
 uint8_t ntrip_push_tx_data(uint8_t* buf, uint16_t len)
 {
-    if (NTRIP_client_start == NTRIP_START_ON && NTRIP_client_state == NTRIP_STATE_INTERACTIVE)
+    if (is_ntrip_interactive())
     {
         fifo_push(&ntrip_tx_fifo, (uint8_t*)buf, len);
         return 1;
@@ -200,12 +196,62 @@ uint8_t ntrip_push_tx_data(uint8_t* buf, uint16_t len)
     return 0;
 }
 
+/** ***************************************************************************
+ * @name ntrip_link_down
+ * @brief link down ntrip client
+ * @param 
+ * @retval 
+ ******************************************************************************/
 void ntrip_link_down(void)
 {
     if (NTRIP_client_state >= NTRIP_STATE_CONNECT && NTRIP_client_state <= NTRIP_STATE_INTERACTIVE)
     {
         NTRIP_client_state = NTRIP_STATE_LINK_DOWN;
     }
+}
+
+/** ***************************************************************************
+ * @name is_ntrip_interactive
+ * @brief get ntrip state
+ * @param 
+ * @retval true: is connected  false: others
+ ******************************************************************************/
+uint8_t is_ntrip_interactive(void)
+{
+    return (NTRIP_client_state == NTRIP_STATE_INTERACTIVE);
+}
+
+/** ***************************************************************************
+ * @name add_ntrip_stream_count
+ * @brief add count
+ * @param 
+ * @retval
+ ******************************************************************************/
+void add_ntrip_stream_count(void)
+{
+    ntripStreamCount++;
+}
+
+/** ***************************************************************************
+ * @name clear_ntrip_stream_count
+ * @brief reset count
+ * @param 
+ * @retval
+ ******************************************************************************/
+void clear_ntrip_stream_count(void)
+{
+    ntripStreamCount = 0;
+}
+
+/** ***************************************************************************
+ * @name is_ntrip_stream_available
+ * @brief get ntrip stream state
+ * @param 
+ * @retval true: available  false: unavailable
+ ******************************************************************************/
+uint8_t is_ntrip_stream_available(void)
+{
+    return (ntripStreamCount < NTRIP_STREAM_CONNECTED_MAX_COUNT);
 }
 
 /** ***************************************************************************
@@ -218,10 +264,11 @@ void NTRIP_interface(void)
 {
     static ip_addr_t server_ipaddr;
     static uint8_t txBuf[512];
+    static uint8_t write_fail = 0;
     uint16_t txLen = 0;
     err_t err;
 
-    if (NTRIP_client_start == NTRIP_START_OFF || get_eth_link_state() == ETH_LINK_DOWN)
+    if (is_eth_link_down())
     {
         ntrip_link_down();
     }
@@ -232,6 +279,10 @@ void NTRIP_interface(void)
 #ifdef DEVICE_DEBUG
         printf("ntrip:connect...\r\n");
 #endif
+
+#ifdef DEVICE_DEBUG
+        printf("ntrip:reset start...\r\n");
+#endif
         if (Ntrip_client != NULL)
         {
             netconn_close(Ntrip_client);
@@ -239,9 +290,13 @@ void NTRIP_interface(void)
             netconn_delete(Ntrip_client);
             Ntrip_client = NULL;
         }
+#ifdef DEVICE_DEBUG
+        printf("ntrip:reset over!\r\n");
+#endif
+
         OS_Delay(50);
         Ntrip_client = netconn_new(NETCONN_TCP);
-
+        
         err = ipaddr_aton((const char*)gUserConfiguration.ip, &server_ipaddr);
         if (!err)
         {
@@ -268,6 +323,7 @@ void NTRIP_interface(void)
             if (err == ERR_OK)
             {
                 Ntrip_client->recv_timeout = 10;
+                Ntrip_client->send_timeout = 100;
 
                 NTRIP_client_state = NTRIP_STATE_REQUEST;
 #ifdef DEVICE_DEBUG
@@ -277,7 +333,7 @@ void NTRIP_interface(void)
             else
             {
 #ifdef DEVICE_DEBUG
-                printf("ntrip:connect err = %d\r\n", err);
+                printf("ntrip:connect err {%d}\r\n", err);
 #endif
             }
         }
@@ -288,9 +344,9 @@ void NTRIP_interface(void)
         printf("ntrip:request...\r\n");
 #endif
         OS_Delay(100);
-        Fill_EthLocalRTKPacketPayload(ntripTxBuf, &txLen);
+        fill_localrtk_request_payload(txBuf, &txLen);
 
-        err = ntrip_write_data(ntripTxBuf, txLen, NETCONN_COPY);
+        err = ntrip_write_data(txBuf, txLen, NETCONN_COPY);
         if (err == ERR_OK)
         {
             OS_Delay(1000);
@@ -305,6 +361,7 @@ void NTRIP_interface(void)
                     printf("ntrip:ICY 200 OK\r\n");
 #endif
                     NTRIP_client_state = NTRIP_STATE_INTERACTIVE;
+                    write_fail = 0;
                     OS_Delay(100);
                 }
             }
@@ -312,18 +369,28 @@ void NTRIP_interface(void)
         break;
 
     case NTRIP_STATE_INTERACTIVE:
-        ntrip_push_rx_data(&ntrip_rx_fifo);
-
+        err = ntrip_push_rx_data(&ntrip_rx_fifo);
+        //printf("rx err=%d\r\n",err);
         txLen = fifo_get(&ntrip_tx_fifo, txBuf, 512);
         if (txLen)
         {
-            ntrip_write_data(txBuf, txLen, NETCONN_NOFLAG);
+            err = ntrip_write_data(txBuf, txLen, NETCONN_NOFLAG);
+            if (err != 0) {
+#ifdef DEVICE_DEBUG
+                printf("ntrip:tx err {%d}\r\n", err);
+#endif
+                write_fail++;
+                if (write_fail >= 3)
+                {
+                    NTRIP_client_state = NTRIP_STATE_OFF;
+                }
+            }
         }
         break;
 
     case NTRIP_STATE_LINK_DOWN:
 #ifdef DEVICE_DEBUG
-        printf("ntrip:link down!\r\n");
+        printf("ntrip:link down start...\r\n");
 #endif
         if (Ntrip_client != NULL)
         {
@@ -332,15 +399,18 @@ void NTRIP_interface(void)
             netconn_delete(Ntrip_client);
             Ntrip_client = NULL;
         }
+#ifdef DEVICE_DEBUG
+        printf("ntrip:link down over!\r\n");
+#endif
         NTRIP_client_state = NTRIP_STATE_OFF;
         break;
 
     case NTRIP_STATE_OFF:
-        if (get_eth_link_state() && NTRIP_client_start == NTRIP_START_ON)
+        if (!is_eth_link_down())
         {
             if (gUserConfiguration.ethMode == ETHMODE_DHCP)
             {
-                if (eth_dhcp_state == DHCP_STATE_ADDRESS_ASSIGNED || eth_dhcp_state == DHCP_STATE_TIMEOUT)
+                if (is_dhcp_address_assigned())
                 {
                     NTRIP_client_state = NTRIP_STATE_CONNECT;
                 }

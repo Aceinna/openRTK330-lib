@@ -1,5 +1,5 @@
 #include "netif/ethernetif.h"
-#include "LwipComm.h"
+#include "lwip_comm.h"
 #include "netif/etharp.h"
 #include "cmsis_os.h"
 #include "osapi.h"

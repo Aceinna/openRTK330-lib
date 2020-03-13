@@ -4,10 +4,10 @@
 #include "httpd.h"
 #include "lwip/tcp.h"
 #include "fs.h"
-#include "LwipComm.h"
+#include "lwip_comm.h"
 #include "app_version.h"
 #include "stm32f4xx_hal.h"
-#include "ntripClient.h"
+#include "ntrip_client.h"
 #include "calibrationAPI.h"
 #include "platformAPI.h"
 #include "user_config.h"
@@ -17,24 +17,18 @@ const char radioEthMode[2][15] = {
     "radioStatic",
 };
 
-const char radioBaseStream[2][15] = {
-    "radioBaseOff",
-	"radioBaseOn",
-};
-
 #define NUM_CONFIG_SSI_TAGS 8
-#define NUM_CONFIG_CGI_URIS 4
+#define NUM_CONFIG_CGI_URIS 3
 #define NUM_CONFIG_JS_URIS 4
 
-const char *NTRIP_CONFIG_CGI_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
-const char *START_NTRIP_CGI_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
-const char *USER_CONFIG_CGI_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
-const char *ETHNET_CONFIG_CGI_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
+const char *ntrip_config_cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
+const char *user_config_cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
+const char *ethnet_config_cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
 
-const char *NTRIP_CONFIG_JS_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
-const char *NTRIP_STATE_JS_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
-const char *USER_CONFIG_JS_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
-const char *ETHNET_CONFIG_JS_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
+const char *ntrip_config_js_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
+const char *ntrip_state_js_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
+const char *user_config_js_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
+const char *ethnet_config_js_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]);
 
 
 static const char *ssiTAGs[] =
@@ -51,22 +45,21 @@ static const char *ssiTAGs[] =
 
 static const tCGI cgiURIs[] =
 	{
-        {"/NtripConfig.cgi", NTRIP_CONFIG_CGI_Handler},
-        {"/StartNtrip.cgi", START_NTRIP_CGI_Handler},		
-		{"/UserConfig.cgi", USER_CONFIG_CGI_Handler},
-		{"/EthnetConfig.cgi", ETHNET_CONFIG_CGI_Handler},
+        {"/NtripConfig.cgi", ntrip_config_cgi_handler},
+		{"/UserConfig.cgi", user_config_cgi_handler},
+		{"/EthnetConfig.cgi", ethnet_config_cgi_handler},
 };
 
 static const tJS jsURIs[] =
 	{
-		{"/NtripConfig.js", NTRIP_CONFIG_JS_Handler},
-        {"/NtripState.js", NTRIP_STATE_JS_Handler},
-		{"/UserConfig.js", USER_CONFIG_JS_Handler},
-        {"/EthnetConfig.js", ETHNET_CONFIG_JS_Handler},
+		{"/NtripConfig.js", ntrip_config_js_handler},
+        {"/NtripState.js", ntrip_state_js_handler},
+		{"/UserConfig.js", user_config_js_handler},
+        {"/EthnetConfig.js", ethnet_config_js_handler},
 };
 
 // SSI Handler
-static u16_t SSIHandler(int iIndex, char *pcInsert, int iInsertLen)
+static u16_t ssi_handler(int iIndex, char *pcInsert, int iInsertLen)
 {
     uint8_t temp[25];
 
@@ -110,7 +103,7 @@ static u16_t SSIHandler(int iIndex, char *pcInsert, int iInsertLen)
         strcpy(pcInsert, APP_VERSION_STRING);
         break;
     case 6:
-        if (NTRIP_client_state == NTRIP_STATE_INTERACTIVE)
+        if (is_ntrip_interactive())
         {
             strcpy(pcInsert, "CONNECTED");
         }
@@ -120,7 +113,7 @@ static u16_t SSIHandler(int iIndex, char *pcInsert, int iInsertLen)
         }
         break;
     case 7:
-        if (NTRIP_client_state == NTRIP_STATE_INTERACTIVE && ntripStreamCount < NTRIP_STREAM_CONNECTED_MAX_COUNT)
+        if (is_ntrip_interactive() && is_ntrip_stream_available())
         {
             strcpy(pcInsert, "AVAILABLE");
         }
@@ -149,7 +142,7 @@ static int FindCGIParameter(const char *pcToFind, char *pcParam[], int iNumParam
 	return (-1);
 }
 
-const char *ETHNET_CONFIG_CGI_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
+const char *ethnet_config_cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
 {
 	int index_eth_mode, index_static_ip, index_static_netmask, index_static_gateway;
     ip_addr_t ip_addr_ip;
@@ -193,10 +186,6 @@ const char *ETHNET_CONFIG_CGI_Handler(int iIndex, int iNumParams, char *pcParam[
 
 					SaveUserConfig();
 				}
-				else
-				{
-					// no change
-				}
 			}
 			else 
 			{
@@ -208,66 +197,42 @@ const char *ETHNET_CONFIG_CGI_Handler(int iIndex, int iNumParams, char *pcParam[
 	return "/EthCfg.shtml";
 }
 
-const char *NTRIP_CONFIG_CGI_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
+const char *ntrip_config_cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
 {
-	int index_ip, index_port, index_mountPoint, index_username, index_password, index_base;
-	uint16_t port;
+	int index_ip, index_port, index_mountPoint, index_username, index_password;
+	uint16_t port = 0;
 
-	if (iNumParams == 6)
+	if (iNumParams == 5)
 	{
         index_ip = FindCGIParameter("ip", pcParam, iNumParams);
 		index_port = FindCGIParameter("port", pcParam, iNumParams);
 		index_mountPoint = FindCGIParameter("mountPoint", pcParam, iNumParams);
         index_username = FindCGIParameter("username", pcParam, iNumParams);
 		index_password = FindCGIParameter("password", pcParam, iNumParams);
-        index_base = FindCGIParameter("baseStream", pcParam, iNumParams);
 		
-		if (index_ip != -1 && index_port != -1 && index_mountPoint != -1
-            && index_username != -1 && index_password != -1 && index_base != -1)
+		if (index_ip != -1 && index_port != -1 && index_mountPoint != -1 && index_username != -1 && index_password != -1)
 		{
-			if (strlen(pcValue[index_mountPoint]) > 3 && pcValue[index_mountPoint][0] == '%' 	
-				&& pcValue[index_mountPoint][1] == '2'&& pcValue[index_mountPoint][2] == 'F')
+			port = atoi(pcValue[index_port]);
+
+			if (strcmp((const char*)gUserConfiguration.ip, pcValue[index_ip]) != 0
+				|| gUserConfiguration.port != port 
+				|| strcmp((const char*)gUserConfiguration.mountPoint, pcValue[index_mountPoint]) != 0
+				|| strcmp((const char*)gUserConfiguration.username, pcValue[index_username]) != 0
+				|| strcmp((const char*)gUserConfiguration.password, pcValue[index_password]) != 0)
 			{
-				port = atoi(pcValue[index_port]);
+				memset(gUserConfiguration.ip, 0, sizeof(gUserConfiguration.ip));
+				strcpy((char *)gUserConfiguration.ip, (const char *)pcValue[index_ip]);
+				gUserConfiguration.port = port;
+				memset(gUserConfiguration.mountPoint, 0, sizeof(gUserConfiguration.mountPoint));
+				strcpy((char *)gUserConfiguration.mountPoint, (const char *)pcValue[index_mountPoint]);
+				memset(gUserConfiguration.username, 0, sizeof(gUserConfiguration.username));
+				strcpy((char *)gUserConfiguration.username, (const char *)pcValue[index_username]);
+				memset(gUserConfiguration.password, 0, sizeof(gUserConfiguration.password));
+				strcpy((char *)gUserConfiguration.password, (const char *)pcValue[index_password]);
 
-				if (strcmp((const char*)gUserConfiguration.ip, pcValue[index_ip]) != 0
-					|| gUserConfiguration.port != port 
-					|| strcmp((const char*)&gUserConfiguration.mountPoint[1], &pcValue[index_mountPoint][3]) != 0
-                    || strcmp((const char*)gUserConfiguration.username, pcValue[index_username]) != 0
-					|| strcmp((const char*)gUserConfiguration.password, pcValue[index_password]) != 0)
-				{
-                    memset(gUserConfiguration.ip, 0, sizeof(gUserConfiguration.ip));
-					strcpy((char*)gUserConfiguration.ip, (const char*)pcValue[index_ip]);
-					gUserConfiguration.port = port;
-                    memset(gUserConfiguration.mountPoint, 0, sizeof(gUserConfiguration.mountPoint));
-					gUserConfiguration.mountPoint[0] = '/';
-					strcpy((char*)&gUserConfiguration.mountPoint[1], (const char*)&pcValue[index_mountPoint][3]);
-                    memset(gUserConfiguration.username, 0, sizeof(gUserConfiguration.username));
-					strcpy((char*)gUserConfiguration.username, (const char*)pcValue[index_username]);
-                    memset(gUserConfiguration.password, 0, sizeof(gUserConfiguration.password));
-                    strcpy((char*)gUserConfiguration.password, (const char*)pcValue[index_password]);
+				netif_ntrip_config_changed();
 
-                    netif_ntrip_config_changed();
-
-					SaveUserConfig();
-				}
-				else
-				{
-					// no change
-				}
-
-                if (!strcmp(pcValue[index_base], "BaseOn"))
-                {
-                    NTRIP_base_stream = BSAE_ON;
-                }
-                else if (!strcmp(pcValue[index_base], "BaseOff"))
-                {
-                    NTRIP_base_stream = BSAE_OFF;
-                }
-			}
-			else
-			{
-				// err ip
+				SaveUserConfig();
 			}
 		}
 	}
@@ -275,16 +240,14 @@ const char *NTRIP_CONFIG_CGI_Handler(int iIndex, int iNumParams, char *pcParam[]
 	return "/NtripCfg.shtml";
 }
 
-const char *USER_CONFIG_CGI_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
+const char *user_config_cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
 {
-    int index_profile;
 	int index_leverArmBx, index_leverArmBy, index_leverArmBz;
 	int index_pointOfInterestBx, index_pointOfInterestBy, index_pointOfInterestBz;
 	int index_rotationRbvx, index_rotationRbvy, index_rotationRbvz;
 
-	if (iNumParams == 10)
+	if (iNumParams == 9)
 	{
-		index_profile = FindCGIParameter("profile", pcParam, iNumParams);
 		index_leverArmBx = FindCGIParameter("leverArmBx", pcParam, iNumParams);
 		index_leverArmBy = FindCGIParameter("leverArmBy", pcParam, iNumParams);
 		index_leverArmBz = FindCGIParameter("leverArmBz", pcParam, iNumParams);
@@ -295,11 +258,10 @@ const char *USER_CONFIG_CGI_Handler(int iIndex, int iNumParams, char *pcParam[],
 		index_rotationRbvy = FindCGIParameter("rotationRbvy", pcParam, iNumParams);
 		index_rotationRbvz = FindCGIParameter("rotationRbvz", pcParam, iNumParams);
 
-		if (index_profile != -1 && index_leverArmBx != -1 && index_leverArmBy != -1 && index_leverArmBz != -1
+		if (index_leverArmBx != -1 && index_leverArmBy != -1 && index_leverArmBz != -1
 			&& index_pointOfInterestBx != -1 && index_pointOfInterestBy != -1 && index_pointOfInterestBz != -1
 			&& index_rotationRbvx != -1 && index_rotationRbvy != -1 && index_rotationRbvz != -1)
 		{
-			gUserConfiguration.profile = atoi(pcValue[index_profile]);
 			gUserConfiguration.leverArmBx = atof(pcValue[index_leverArmBx]);
 			gUserConfiguration.leverArmBy = atof(pcValue[index_leverArmBy]);
 			gUserConfiguration.leverArmBz = atof(pcValue[index_leverArmBz]);
@@ -316,25 +278,11 @@ const char *USER_CONFIG_CGI_Handler(int iIndex, int iNumParams, char *pcParam[],
 	return "/UserCfg.shtml";
 }
 
-const char *START_NTRIP_CGI_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
-{
-    if (NTRIP_client_start == NTRIP_START_OFF)
-    {
-        NTRIP_client_start = NTRIP_START_ON;
-    }
-    else
-    {
-        NTRIP_client_start = NTRIP_START_OFF;
-    }
-    
-    return "/NtripCfg.shtml";
-}
-
 #define HTTP_JS_RESPONSE_SIZE 1024
 CCMRAM uint8_t http_response[HTTP_JS_RESPONSE_SIZE];
 CCMRAM uint8_t http_response_body[HTTP_JS_RESPONSE_SIZE];
 // JS Handler
-const char *ETHNET_CONFIG_JS_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
+const char *ethnet_config_js_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
 {
 	memset(http_response, 0, HTTP_JS_RESPONSE_SIZE);
 	memset(http_response_body, 0, HTTP_JS_RESPONSE_SIZE);
@@ -351,18 +299,17 @@ const char *ETHNET_CONFIG_JS_Handler(int iIndex, int iNumParams, char *pcParam[]
 	return (char *)http_response;
 }
 
-const char *NTRIP_CONFIG_JS_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
+const char *ntrip_config_js_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
 {
 	memset(http_response, 0, HTTP_JS_RESPONSE_SIZE);
 	memset(http_response_body, 0, HTTP_JS_RESPONSE_SIZE);
 
-	sprintf((char *)http_response_body, "NtripConfigCallback({\"ip\":\"%s\",\"port\":\"%d\",\"mountPoint\":\"%s\",\"username\":\"%s\",\"password\":\"%s\",\"baseStream\":\"%s\"})",
+	sprintf((char *)http_response_body, "NtripConfigCallback({\"ip\":\"%s\",\"port\":\"%d\",\"mountPoint\":\"%s\",\"username\":\"%s\",\"password\":\"%s\"})",
 			gUserConfiguration.ip,
 			gUserConfiguration.port,
 			gUserConfiguration.mountPoint,
             gUserConfiguration.username,
-            gUserConfiguration.password,
-            radioBaseStream[NTRIP_base_stream]
+            gUserConfiguration.password
 			);
 
 	sprintf((char *)http_response, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length:%d\r\n\r\n%s", strlen((const char*)http_response_body), http_response_body);
@@ -370,13 +317,12 @@ const char *NTRIP_CONFIG_JS_Handler(int iIndex, int iNumParams, char *pcParam[],
 	return (char *)http_response;
 }
 
-const char *USER_CONFIG_JS_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
+const char *user_config_js_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
 {
 	memset(http_response, 0, HTTP_JS_RESPONSE_SIZE);
 	memset(http_response_body, 0, HTTP_JS_RESPONSE_SIZE);
 
-	sprintf((char *)http_response_body, "UserConfigCallback({\"profile\":\"%lu\",\"leverArmBx\":\"%f\",\"leverArmBy\":\"%f\",\"leverArmBz\":\"%f\",\"pointOfInterestBx\":\"%f\",\"pointOfInterestBy\":\"%f\",\"pointOfInterestBz\":\"%f\",\"rotationRbvx\":\"%f\",\"rotationRbvy\":\"%f\",\"rotationRbvz\":\"%f\"})",
-			gUserConfiguration.profile,
+	sprintf((char *)http_response_body, "UserConfigCallback({\"leverArmBx\":\"%f\",\"leverArmBy\":\"%f\",\"leverArmBz\":\"%f\",\"pointOfInterestBx\":\"%f\",\"pointOfInterestBy\":\"%f\",\"pointOfInterestBz\":\"%f\",\"rotationRbvx\":\"%f\",\"rotationRbvy\":\"%f\",\"rotationRbvz\":\"%f\"})",
 			gUserConfiguration.leverArmBx,
 			gUserConfiguration.leverArmBy,
 			gUserConfiguration.leverArmBz,
@@ -393,14 +339,14 @@ const char *USER_CONFIG_JS_Handler(int iIndex, int iNumParams, char *pcParam[], 
 	return (char *)http_response;
 }
 
-const char *NTRIP_STATE_JS_Handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
+const char *ntrip_state_js_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
 {
     memset(http_response, 0, HTTP_JS_RESPONSE_SIZE);
 	memset(http_response_body, 0, HTTP_JS_RESPONSE_SIZE);
 
     sprintf((char *)http_response_body, "NtripStateCallback({\"connect\":\"%s\",\"stream\":\"%s\"})",
-        (NTRIP_client_state == NTRIP_STATE_INTERACTIVE)? "CONNECTED":"DISCONNECTED",
-        (NTRIP_client_state == NTRIP_STATE_INTERACTIVE && ntripStreamCount < NTRIP_STREAM_CONNECTED_MAX_COUNT)? "AVAILABLE":"UNAVAILABLE");
+        (is_ntrip_interactive())? "CONNECTED":"DISCONNECTED",
+        (is_ntrip_interactive() && is_ntrip_stream_available())? "AVAILABLE":"UNAVAILABLE");
 
 	sprintf((char *)http_response, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length:%d\r\n\r\n%s", strlen((const char*)http_response_body), http_response_body);
 
@@ -409,7 +355,7 @@ const char *NTRIP_STATE_JS_Handler(int iIndex, int iNumParams, char *pcParam[], 
 
 void httpd_ssi_init(void)
 {
-	http_set_ssi_handler(SSIHandler, ssiTAGs, NUM_CONFIG_SSI_TAGS);
+	http_set_ssi_handler(ssi_handler, ssiTAGs, NUM_CONFIG_SSI_TAGS);
 }
 
 void httpd_cgi_init(void)

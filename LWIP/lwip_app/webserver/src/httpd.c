@@ -83,7 +83,6 @@
 #include "httpd_structs.h"
 #include "lwip/tcp.h"
 #include "fs.h"
-#include "LwipComm.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -1197,7 +1196,7 @@ static u8_t http_send_data(struct tcp_pcb *pcb, struct http_state *hs)
           } else {
 #if LWIP_HTTPD_SSI_MULTIPART
             if(hs->tag_index >= hs->tag_insert_len) {
-              /* Did the last SSIHandler have more to send? */
+              /* Did the last ssi_handler have more to send? */
               if (hs->tag_part != HTTPD_LAST_TAG_PART) {
                 /* If so, call it again */
                 hs->tag_index = 0;

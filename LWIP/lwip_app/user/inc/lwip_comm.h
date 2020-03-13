@@ -1,5 +1,5 @@
-#ifndef _LWIPCOMM_H
-#define _LWIPCOMM_H
+#ifndef _LWIP_COMM_H
+#define _LWIP_COMM_H
 
 #include <stdio.h>
 #include "lwipopts.h"
@@ -47,14 +47,20 @@ extern uint8_t eth_dhcp_state;
 void ethernet_init(void);
 
 uint8_t dhcp_supplied_address(const struct netif *netif);
-void User_notification(struct netif *netif);
+void user_notification(struct netif *netif);
 void ethernetif_notify_conn_changed(struct netif *netif);
-uint8_t get_eth_link_state(void);
+
+void set_eth_link_up(void);
+void set_eth_link_down(void);
+uint8_t is_eth_link_down(void);
+
 void netif_ethernet_config_changed(void);
 void netif_ntrip_config_changed(void);
 void netif_set_static_ip(struct netif *netif);
 void dhcp_link_down(void);
-void DHCP_thread(void const *argument);
+uint8_t is_dhcp_address_assigned(void);
+
+void dhcp_thread(void const *argument);
 uint8_t dns_get_ip_by_hostname(uint8_t *hostname, ip_addr_t* addr);
 
 

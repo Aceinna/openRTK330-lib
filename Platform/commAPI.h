@@ -27,7 +27,7 @@ limitations under the License.
 #ifndef _COMM_API_H
 #define _COMM_API_H
 
-extern void  ProcessUserCommands   (void);
-extern void  SendContinuousPacket  (int dacqRate);
+extern void ProcessUserCommands(void);
+extern void SendContinuousPacket();
 
 #endif

@@ -1,4 +1,4 @@
-#include "LwipComm.h"
+#include "lwip_comm.h"
 #include "netif/etharp.h"
 #include "lwip/dhcp.h"
 #include "lwip/mem.h"
@@ -17,7 +17,7 @@
 #include <string.h>
 #include "httpd.h"
 #include "netbios.h"
-#include "ntripClient.h"
+#include "ntrip_client.h"
 #include "user_config.h"
 #include "cmsis_os.h"
 
@@ -72,10 +72,10 @@ void ethernet_init(void)
     /* Initialize webserver */
 	httpd_init(); 
     
-    User_notification(&gnetif);
+    user_notification(&gnetif);
 
 	/* Start DHCPClient */
-	osThreadDef(DHCP, DHCP_thread, osPriorityNormal, 0, configMINIMAL_STACK_SIZE);
+	osThreadDef(DHCP, dhcp_thread, osPriorityNormal, 0, configMINIMAL_STACK_SIZE);
 	osThreadCreate(osThread(DHCP), &gnetif);
 }
 
@@ -97,16 +97,16 @@ uint8_t dhcp_supplied_address(const struct netif *netif)
 }
 
 /** ***************************************************************************
- * @name User_notification
+ * @name user_notification
  * @brief Notify the User about the nework interface config status.
  * @param [in] netif : the lwip network interface structure for this ethernetif
  * @retval N/A
  ******************************************************************************/
-void User_notification(struct netif *netif)
+void user_notification(struct netif *netif)
 {
     if (netif_is_up(netif))
     {
-        eth_link_state = ETH_LINK_UP;
+        set_eth_link_up();
 
         if (gUserConfiguration.ethMode == ETHMODE_STATIC)
         {
@@ -115,7 +115,7 @@ void User_notification(struct netif *netif)
     }
     else
     {
-        eth_link_state = ETH_LINK_DOWN;
+        set_eth_link_down();
     }
 }
 
@@ -129,7 +129,7 @@ void ethernetif_notify_conn_changed(struct netif *netif)
 {
     if (netif_is_link_up(netif))
     {
-        eth_link_state = ETH_LINK_UP;
+        set_eth_link_up();
         
         if (gUserConfiguration.ethMode == ETHMODE_STATIC)
         {
@@ -140,21 +140,34 @@ void ethernetif_notify_conn_changed(struct netif *netif)
     }
     else
     {
-        eth_link_state = ETH_LINK_DOWN;
+#ifdef DEVICE_DEBUG
+    printf("ETH link down\r\n");
+#endif
+        set_eth_link_down();
 
         netif_set_down(netif);
     }
 }
 
 /** ***************************************************************************
- * @name get_eth_link_state
- * @brief 
+ * @name set_eth_link_up / set_eth_link_down / is_eth_link_down
+ * @brief link state
  * @param N/A
- * @retval link state
+ * @retval 
  ******************************************************************************/
-uint8_t get_eth_link_state(void)
+void set_eth_link_up(void)
 {
-    return eth_link_state;
+    eth_link_state = ETH_LINK_UP;
+}
+
+void set_eth_link_down(void)
+{
+    eth_link_state = ETH_LINK_DOWN;
+}
+
+uint8_t is_eth_link_down(void)
+{
+    return (eth_link_state ==  ETH_LINK_DOWN);
 }
 
 /** ***************************************************************************
@@ -165,7 +178,7 @@ uint8_t get_eth_link_state(void)
  ******************************************************************************/
 void netif_ethernet_config_changed(void)
 {
-    if (get_eth_link_state())
+    if (!is_eth_link_down())
     {
         // close connected ntrip
         ntrip_link_down();
@@ -185,7 +198,7 @@ void netif_ethernet_config_changed(void)
  ******************************************************************************/
 void netif_ntrip_config_changed(void)
 {
-    if (get_eth_link_state())
+    if (!is_eth_link_down())
     {
         // close connected ntrip
         ntrip_link_down();
@@ -233,18 +246,29 @@ void dhcp_link_down(void)
 }
 
 /** ***************************************************************************
- * @name DHCP_thread
+ * @name is_dhcp_address_assigned
+ * @brief get dhcp state
+ * @param argument: N/A
+ * @retval true: dhcp has success  false: other
+ ******************************************************************************/
+uint8_t is_dhcp_address_assigned(void)
+{
+    return (eth_dhcp_state == DHCP_STATE_ADDRESS_ASSIGNED);
+}
+
+/** ***************************************************************************
+ * @name dhcp_thread
  * @brief DHCP Process
  * @param argument: the lwip network interface structure
  * @retval N/A
  ******************************************************************************/
-void DHCP_thread(void const *argument)
+void dhcp_thread(void const *argument)
 {
 	struct netif *netif = (struct netif *)argument;
 
     for (;;)
     {
-        if (gUserConfiguration.ethMode != ETHMODE_DHCP || eth_link_state == ETH_LINK_DOWN)
+        if (gUserConfiguration.ethMode != ETHMODE_DHCP || is_eth_link_down())
         {
             dhcp_link_down();
         }
@@ -253,6 +277,9 @@ void DHCP_thread(void const *argument)
         {
         case DHCP_STATE_START:
         {
+#ifdef DEVICE_DEBUG
+    printf("DHCP start...\r\n");
+#endif
             ip_addr_set_zero(&netif->ip_addr);
             ip_addr_set_zero(&netif->netmask);
             ip_addr_set_zero(&netif->gw);
@@ -285,7 +312,7 @@ void DHCP_thread(void const *argument)
                     dhcp_stop(netif);
 
 #ifdef DEVICE_DEBUG
-                    printf("DHCP timeout!\r\n");
+    printf("DHCP timeout!\r\n");
 #endif
                 }
             }
@@ -300,8 +327,7 @@ void DHCP_thread(void const *argument)
 
         case DHCP_STATE_TIMEOUT:
         {
-            /* use static ip */
-            netif_set_static_ip(netif);
+            // process dhcp time out
             eth_dhcp_state = DHCP_STATE_OFF;
         }
         break;
@@ -309,6 +335,9 @@ void DHCP_thread(void const *argument)
         case DHCP_STATE_LINK_DOWN:
         {
             /* Stop DHCP */
+#ifdef DEVICE_DEBUG
+    printf("DHCP link down!\r\n");
+#endif
             dhcp_stop(netif);
             eth_dhcp_state = DHCP_STATE_OFF;
         }
@@ -316,7 +345,7 @@ void DHCP_thread(void const *argument)
 
         case DHCP_STATE_OFF:
         {
-            if (gUserConfiguration.ethMode == ETHMODE_DHCP && eth_link_state == ETH_LINK_UP)
+            if (gUserConfiguration.ethMode == ETHMODE_DHCP && !is_eth_link_down())
             {
                 eth_dhcp_state = DHCP_STATE_START;
             }
@@ -329,17 +358,17 @@ void DHCP_thread(void const *argument)
 
         ethernetif_link_state_check(netif);
         osDelay(250);
-        ntripStreamCount++;
+        add_ntrip_stream_count();
     }
 }
 
 /** ***************************************************************************
- * @name dnsFoundCallback
+ * @name dns_get_callback
  * @brief dns found, set the global server ip
  * @param argument: the lwip network interface structure
  * @retval N/A
  ******************************************************************************/
-void dnsFoundCallback(const char *name, ip_addr_t *host_ip, void *callback_arg)
+void dns_get_callback(const char *name, ip_addr_t *host_ip, void *callback_arg)
 {
 #ifdef DEVICE_DEBUG
     printf("ntrip:hostname %s | ip %s\r\n", name, ip_ntoa(host_ip));
@@ -354,7 +383,7 @@ void dnsFoundCallback(const char *name, ip_addr_t *host_ip, void *callback_arg)
  ******************************************************************************/
 uint8_t dns_get_ip_by_hostname(uint8_t *hostname, ip_addr_t* addr)
 {
-    if(dns_gethostbyname((char*)hostname, addr, dnsFoundCallback, NULL) == ERR_OK)
+    if(dns_gethostbyname((char*)hostname, addr, dns_get_callback, NULL) == ERR_OK)
     {
         return 1;
     }

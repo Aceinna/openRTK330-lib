@@ -486,6 +486,34 @@ static int add_eph(eph_t* eph, nav_t* nav);
 static int add_geph(geph_t* eph, nav_t* nav);
 
 /*--------------------------------------------------------------------*/
+typedef struct
+{
+    int32_t Massage_Number;
+    int32_t Sbu_Type_ID;
+    int32_t Reference_Station_ID;
+    int32_t Reserved_ITRF;
+    int32_t GPS_Quality_Indicator;
+    int32_t Number_satellites_use;
+    int32_t Number_satellites_view;
+    float HDOP;
+    float VDOP;
+    float PDOP;
+    float Geoidal_separation;
+    int32_t Age_Differentials;
+    int32_t Differential_Reference_Station_ID;
+    int32_t GNSS_ID;
+    int32_t GNSS_Epoch_Time;
+    int32_t Extended_Week_Number;
+    int32_t Leap_Seconds;
+    double Antenna_Position_ECEF_XYZ[3];
+    // double Antenna_Position_ECEF_Y;
+    // double Antenna_Position_ECEF_Z;
+    float Antenna_Velocity_ECEF_X;
+    float Antenna_Velocity_ECEF_Y;
+    float Antenna_Velocity_ECEF_Z;
+
+} RTCM_999_Receiver_PVT_STRUCT;
+extern RTCM_999_Receiver_PVT_STRUCT RTCM_999_Receiver_PVT;
 #ifdef __cplusplus
 }
 #endif
