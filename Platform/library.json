@@ -1,14 +1,18 @@
 {
 	"name": "Platform",
  	"version": "1.0.4",
- 	"description": "LowCostRTK platform library",
+ 	"description": "OpenRTK platform library",
  	"build": {
  		"flags": [
 			"-I .",
-			"-I Core/include",
 			"-I Board/include",
+			"-I cJSON/inc",
+			"-I common/include",
+			"-I Core/include",
+			"-I Driver/inc",
 			"-I Filter/include",
-			"-I Driver/inc"
+			"-I gnss_data/include",
+			"-I math/include"
  		],
 		"libArchive": true,
 		"platforms": "aceinna_imu"
