@@ -245,7 +245,7 @@ int print_nmea_gga(double *ep, double *xyz, int nsat, int type, double dop,
 	return strlen(buff);
 }
 
-void print_pos_gga(gtime_t time, double *pos, int num_of_sat, int fixID,
+int print_pos_gga(gtime_t time, double *pos, int num_of_sat, int fixID,
 	double hdop, double age, char *gga)
 {
 	double ep[6] = { 0.0 };
@@ -257,7 +257,9 @@ void print_pos_gga(gtime_t time, double *pos, int num_of_sat, int fixID,
         {
             ut = gpst2utc(time);
             time2epoch(ut, ep);
-            print_nmea_gga(ep, pos, num_of_sat, fixID, hdop, age, gga);
+            return print_nmea_gga(ep, pos, num_of_sat, fixID, hdop, age, gga);
         }
     }
+
+    return 0
 }

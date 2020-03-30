@@ -130,22 +130,6 @@ typedef unsigned char BOOL;
 #define _400_DPS_RANGE   1
 #define _1000_DPS_RANGE  2
 
-// Choices for user system type
-#define IMU_6DOF_SYS      0     //         IMU 6 degrees of freedom - Only accelerometers and gyros
-#define IMU_9DOF_SYS      1     // default IMU 9 degrees of freedom - Accelerometers, gyros, magnetometer
-#define UNAIDED_VG_SYS    2
-#define UNAIDED_AHRS_SYS  3
-#define AIDED_VG_SYS      4
-#define AIDED_AHRS_SYS    5  
-#define INS_SYS           6
-
-
-// Algorithm specifiers
-#define  IMU   0
-#define  AHRS  1
-#define  VG    2
-#define  INS0   3
-
 //#define USE_DOUBLE
 #ifdef USE_DOUBLE
 #define  real  double
@@ -215,9 +199,6 @@ typedef unsigned char BOOL;
 #define MAXINT16_OVER_2PI   5215.030020292134 //( MAXINT16 / TWOPI)
 #define MAXUINT16_OVER_512   127.9980468750000 // ( MAXUINT16 / 512.0)
 #define MAXUINT16_OVER_2   32768.0 //( MAXUINT16 / 2.0)
-
-// For magCal()
-#define MAXINT16_OVER_2PI_q18  1367088830
 
 #define MAXINT32_20BIT_OVER131072M  8 // 2^20/(2^17)
 

@@ -1,6 +1,6 @@
 {
 	"name": "OpenRTK-base-library",
- 	"version": "1.0.3",
+ 	"version": "1.0.4",
  	"description": "OpenRTK Base Library",
     "keywords": "sensors, RTK, INS, AI, automotive, navigation",
  	"repository":
@@ -36,7 +36,6 @@
 			"-I Platform/cJSON/inc",
 			"-I Platform/gnss_data/include",
 			"-I Platform/common/include",
-			"-I Platform/math/include",
 
 			"-I FreeRTOS/include",
 			"-I FreeRTOS/",

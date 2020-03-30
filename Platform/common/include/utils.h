@@ -49,7 +49,7 @@ void float2arr(double data, char *a, unsigned char id, unsigned char dd);
 
 int print_nmea_gga(double *ep, double *xyz, int nsat, int type, double dop, 
 	double age, char *buff);
-void print_pos_gga(gtime_t time, double *pos, int num_of_sat, int fixID,
+int print_pos_gga(gtime_t time, double *pos, int num_of_sat, int fixID,
 	double hdop, double age, char *gga);
 
 
