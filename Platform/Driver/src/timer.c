@@ -14,17 +14,18 @@
 * Description: modify double get_time_of_msec(),Otherwise, a data overflow will occur
 *******************************************************************************/
 #include "timer.h"
+#include "string.h"
 #include "constants.h"
 #include "osapi.h"
 #include "rtcm.h"
 #include "stm32f4xx_hal.h"
 #include "main.h"
+#include "user_config.h"
+
 #define SENSOR_TIMER_IRQ                       TIM2_IRQHandler
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim_sensor;
-
-
 
 /* TIM1 init function */
 void MX_TIM1_Init(void)
@@ -59,7 +60,6 @@ void MX_TIM1_Init(void)
 }
 void MX_TIM_SENSOR_Init(void)
 {
-
     /* USER CODE BEGIN TIM2_Init 0 */
 
     /* USER CODE END TIM2_Init 0 */
@@ -127,13 +127,29 @@ static void timer_isr_if(TIM_HandleTypeDef* timer)
                 g_MCU_time.msec = 0;
                 g_MCU_time.time ++;
             }
-            if(g_MCU_time.msec % 10 == 0)
+            switch (gUserConfiguration.userPacketRate)
             {
-                release_sem(g_sem_imu_data_acq);
-            }  
+            case 200:
+                if(g_MCU_time.msec % 5 == 0) // 200Hz
+                {
+                    release_sem(g_sem_imu_data_acq);
+                } 
+                break;
+            case 100:
+                if(g_MCU_time.msec % 10 == 0) // 100Hz
+                {
+                    release_sem(g_sem_imu_data_acq);
+                } 
+                break;            
+            default:
+                if(g_MCU_time.msec % 20 == 0) // 50Hz
+                {
+                    release_sem(g_sem_imu_data_acq);
+                } 
+                break;             
+            }
         }
 
-  
     }
     HAL_TIM_IRQHandler(timer);    
 }

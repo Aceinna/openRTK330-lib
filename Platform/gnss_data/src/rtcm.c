@@ -436,26 +436,7 @@ extern char *time_str(gtime_t t, int n)
 
 extern gtime_t timeget()
 {
-#ifndef ARM_MCU
-    /* utc */
-    double ep[6] = {0};
-    time_t rawtime;
-    struct tm *ptm;
-
-    time(&rawtime);
-
-    ptm = gmtime(&rawtime);
-
-    ep[0] = ptm->tm_year + 1900;
-    ep[1] = ptm->tm_mon + 1;
-    ep[2] = ptm->tm_mday;
-    ep[3] = ptm->tm_hour;
-    ep[4] = ptm->tm_min;
-    ep[5] = ptm->tm_sec;
-    return timeadd(epoch2time(ep), 0.0);
-#else
     return gpst2time(get_week_number(), 0.0);
-#endif
 }
 
 /* adjust weekly rollover of gps time ----------------------------------------*/
@@ -1420,72 +1401,72 @@ static int add_geph(geph_t* eph, nav_t* nav)
 	return ret;
 }
 
-RTCM_999_Receiver_PVT_STRUCT RTCM_999_Receiver_PVT;
-void decode_999_Receive_PVT(rtcm_t *rtcm, obs_t *obs)
+static void decode_type999_subtype4(rtcm_t *rtcm, obs_t *obs)
 {
     int i = 44;
-    RTCM_999_Receiver_PVT.Reference_Station_ID = rtcm_getbitu(rtcm->buff, i, 12);
+    rtcm->st_pvt.ref_station_id = rtcm_getbitu(rtcm->buff, i, 12);
     i += 12;
-    RTCM_999_Receiver_PVT.Reserved_ITRF = rtcm_getbitu(rtcm->buff, i, 6);
+    rtcm->st_pvt.reserved_itrf = rtcm_getbitu(rtcm->buff, i, 6);
     i += 6;
-    RTCM_999_Receiver_PVT.GPS_Quality_Indicator = rtcm_getbitu(rtcm->buff, i, 4);
+    rtcm->st_pvt.gnss_quality_indicator = rtcm_getbitu(rtcm->buff, i, 4);
     i += 4;
-    RTCM_999_Receiver_PVT.Number_satellites_use = rtcm_getbitu(rtcm->buff, i, 8);
+    rtcm->st_pvt.num_sat_in_use = rtcm_getbitu(rtcm->buff, i, 8);
     i += 8;
-    RTCM_999_Receiver_PVT.Number_satellites_view = rtcm_getbitu(rtcm->buff, i, 8);
+    rtcm->st_pvt.num_sat_in_view = rtcm_getbitu(rtcm->buff, i, 8);
     i += 8;
-    RTCM_999_Receiver_PVT.HDOP = (float)rtcm_getbitu(rtcm->buff, i, 8) * 0.1;
+    rtcm->st_pvt.hdop = (float)rtcm_getbitu(rtcm->buff, i, 8) * 0.1;
     i += 8;
-    RTCM_999_Receiver_PVT.VDOP = (float)rtcm_getbitu(rtcm->buff, i, 8) * 0.1;
+    rtcm->st_pvt.vdop = (float)rtcm_getbitu(rtcm->buff, i, 8) * 0.1;
     i += 8;
-    RTCM_999_Receiver_PVT.PDOP = (float)rtcm_getbitu(rtcm->buff, i, 8) * 0.1;
+    rtcm->st_pvt.pdop = (float)rtcm_getbitu(rtcm->buff, i, 8) * 0.1;
     i += 8;
-    RTCM_999_Receiver_PVT.Geoidal_separation = (float)rtcm_getbitu(rtcm->buff, i, 15) * 0.01;
+    rtcm->st_pvt.geoidal_separation = (float)rtcm_getbitu(rtcm->buff, i, 15) * 0.01;
     i += 15;
-    RTCM_999_Receiver_PVT.Age_Differentials = rtcm_getbitu(rtcm->buff, i, 24);
+    rtcm->st_pvt.diff_age = rtcm_getbitu(rtcm->buff, i, 24);
     i += 24;
-    RTCM_999_Receiver_PVT.Differential_Reference_Station_ID = rtcm_getbitu(rtcm->buff, i, 12);
+    rtcm->st_pvt.diff_ref_station_id = rtcm_getbitu(rtcm->buff, i, 12);
     i += 12;
-    RTCM_999_Receiver_PVT.GNSS_ID = rtcm_getbitu(rtcm->buff, i, 4);
+    rtcm->st_pvt.gnss_id = rtcm_getbitu(rtcm->buff, i, 4);
     i += 4;
-    RTCM_999_Receiver_PVT.GNSS_Epoch_Time = rtcm_getbitu(rtcm->buff, i, 30);
+    rtcm->st_pvt.gnss_epoch_time = rtcm_getbitu(rtcm->buff, i, 30);
     i += 30;
-    RTCM_999_Receiver_PVT.Extended_Week_Number = rtcm_getbitu(rtcm->buff, i, 16);
+    rtcm->st_pvt.ext_gps_week_number = rtcm_getbitu(rtcm->buff, i, 16);
     i += 16;
-    RTCM_999_Receiver_PVT.Leap_Seconds = rtcm_getbitu(rtcm->buff, i, 8);
+    rtcm->st_pvt.leap_seconds = rtcm_getbitu(rtcm->buff, i, 8);
     i += 8;
-    RTCM_999_Receiver_PVT.Antenna_Position_ECEF_XYZ[0] = (double)rtcm_getbits_38(rtcm->buff, i) *0.0001;
+    rtcm->st_pvt.pos_xyz[0] = (double)rtcm_getbits_38(rtcm->buff, i) *0.0001;
     i += 38;
-    RTCM_999_Receiver_PVT.Antenna_Position_ECEF_XYZ[1] = (double)rtcm_getbits_38(rtcm->buff, i) *0.0001;
+    rtcm->st_pvt.pos_xyz[1] = (double)rtcm_getbits_38(rtcm->buff, i) *0.0001;
     i += 38;
-    RTCM_999_Receiver_PVT.Antenna_Position_ECEF_XYZ[2] = (double)rtcm_getbits_38(rtcm->buff, i) *0.0001;
+    rtcm->st_pvt.pos_xyz[2] = (double)rtcm_getbits_38(rtcm->buff, i) *0.0001;
     i += 38;
-    RTCM_999_Receiver_PVT.Antenna_Velocity_ECEF_X = (float)rtcm_getbits(rtcm->buff, i, 32) * 0.000001;
+    rtcm->st_pvt.vel_xyz[0] = (float)rtcm_getbits(rtcm->buff, i, 32) * 0.000001;
     i += 32;
-    RTCM_999_Receiver_PVT.Antenna_Velocity_ECEF_Y = (float)rtcm_getbits(rtcm->buff, i, 32) * 0.000001;
+    rtcm->st_pvt.vel_xyz[1] = (float)rtcm_getbits(rtcm->buff, i, 32) * 0.000001;
     i += 32;
-    RTCM_999_Receiver_PVT.Antenna_Velocity_ECEF_Z = (float)rtcm_getbits(rtcm->buff, i, 32) * 0.000001;
+    rtcm->st_pvt.vel_xyz[2] = (float)rtcm_getbits(rtcm->buff, i, 32) * 0.000001;
     i += 32;
 
 	uint8_t j;
 	for (j = 0; j < 3; j++)
 	{
-		obs->pos[j] = RTCM_999_Receiver_PVT.Antenna_Position_ECEF_XYZ[j];
+		obs->pos[j] = rtcm->st_pvt.pos_xyz[j];
 	}    
+
+    rtcm->st_pvt.flag_gnss_update = 1;
 }
 
 static int decode_type999(rtcm_t *rtcm, obs_t *obs)
 {
 
     int i = 24;
-    RTCM_999_Receiver_PVT.Massage_Number = rtcm_getbitu(rtcm->buff, i, 12);
+    rtcm->st_pvt.message_number = rtcm_getbitu(rtcm->buff, i, 12);
     i += 12;
-    RTCM_999_Receiver_PVT.Sbu_Type_ID = rtcm_getbitu(rtcm->buff, i, 8);
-    //printf("ID = %d\r\n", RTCM_999_Receiver_PVT.Sbu_Type_ID);
+    rtcm->st_pvt.sub_type_id = rtcm_getbitu(rtcm->buff, i, 8);
     i += 8;
-    if (RTCM_999_Receiver_PVT.Sbu_Type_ID == 4)
+    if (rtcm->st_pvt.sub_type_id == 4)
     {
-        decode_999_Receive_PVT(rtcm, obs);
+        decode_type999_subtype4(rtcm, obs);
     }
     return 0;
 }
@@ -2090,11 +2071,7 @@ static int decode_type1019(rtcm_t *rtcm, nav_t *nav)
     eph.week = adjgpsweek(&rtcm->time, week);
     eph.toe = gpst2time(eph.week, eph.toes);
     eph.toc = gpst2time(eph.week, toc);
-#ifdef ARM_MCU
-    eph.ttr = timeget();
-#else
     eph.ttr = rtcm->time;
-#endif
     eph.A = sqrtA * sqrtA;
 
    	if (add_eph(&eph, nav)==1)

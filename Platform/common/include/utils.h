@@ -22,6 +22,7 @@ limitations under the License.
 #define _UTILS_H
 
 #include <stdint.h>
+
 #include "gnss_data_api.h"
 
 #define GPS_BUFF_SIZE (2000)
@@ -43,14 +44,14 @@ uint16_t fifo_get(fifo_type* fifo, uint8_t* buffer, uint16_t len);
 uint16_t fifo_status(fifo_type* fifo);
 void fifo_push(fifo_type* fifo, uint8_t* buffer, uint16_t size);
 
-char *itoa_util(int num, char *str, int radix);
-void real2array_util(double data, char *a, unsigned char id, unsigned char dd);
-void ecef2pos_util(const double *r, double *pos);
-void deg2dms_util(double deg, double *dms, int ndec);
-int print_nmea_gga_util(double *ep, double *xyz, int nsat, int type, double dop, 
-	                      double age, char *buff);
-void print_pos_gga_util(gtime_t time, double *pos, int num_of_sat, int fixID,
-	                     double hdop, double age, char *gga);
+char *i2a(int num, char *str, int radix);
+void float2arr(double data, char *a, unsigned char id, unsigned char dd);
+
+int print_nmea_gga(double *ep, double *xyz, int nsat, int type, double dop, 
+	double age, char *buff);
+void print_pos_gga(gtime_t time, double *pos, int num_of_sat, int fixID,
+	double hdop, double age, char *gga);
+
 
 #endif /* _UTILS_H */
 

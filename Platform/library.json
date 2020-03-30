@@ -5,14 +5,10 @@
  	"build": {
  		"flags": [
 			"-I .",
-			"-I Board/include",
-			"-I cJSON/inc",
-			"-I common/include",
 			"-I Core/include",
-			"-I Driver/inc",
+			"-I Board/include",
 			"-I Filter/include",
-			"-I gnss_data/include",
-			"-I math/include"
+			"-I Driver/inc"
  		],
 		"libArchive": true,
 		"platforms": "aceinna_imu"

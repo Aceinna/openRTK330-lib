@@ -35,13 +35,15 @@ typedef struct  {
     uint16_t gps_week;
     uint32_t gps_tow; // gps Time Of Week, miliseconds
 
-    uint8_t  gnss_fix_type; // 1 if data is valid
-    uint8_t  gnss_update; // 1 if contains new data
-    uint8_t  num_sats; // num of satellites in the solution 
+    uint8_t gnss_fix_type; // 1 if data is valid
+    uint8_t vel_mode;
+    uint8_t gnss_update; // 1 if contains new data
+    uint8_t num_sats; // num of satellites in the solution 
 
     double latitude; // latitude ,  degrees 
     double longitude; // longitude,  degrees 
     double altitude; // above mean sea level [m]
+    double pos_ecef[3];
     float vel_ned[3]; // velocities,  m/s  NED (North East Down) x, y, z
     float heading; // [deg]
 
@@ -56,6 +58,7 @@ typedef struct  {
     float std_vd;
 
 } gnss_solution_t;
+extern gnss_solution_t g_gnss_sol;
 
 typedef struct {                        /* rtcm data struct */
     gnss_rtcm_t rtcm; /* store RTCM data struct for RTK and PPP */
@@ -65,6 +68,7 @@ typedef struct {                        /* rtcm data struct */
     obs_t ref;
     nav_t nav;
 } gnss_raw_data_t;
+extern gnss_raw_data_t *g_ptr_gnss_data;
 
 extern int input_rtcm3_data(rtcm_t *rtcm, unsigned char data, obs_t *obs, nav_t *nav);
 extern int input_rtcm3(unsigned char data, unsigned int stnID, gnss_rtcm_t *gnss);

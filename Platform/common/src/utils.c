@@ -1,8 +1,9 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include "utils.h"
 
+#include "utils.h"
+#include "nav_math.h"
 
 
 void fifo_init(fifo_type* fifo, uint8_t* buffer, uint16_t size)
@@ -47,7 +48,8 @@ uint16_t fifo_status(fifo_type* fifo)
 	return lenght;
 }
 
-char *itoa_util(int num, char *str, int radix)
+
+char *i2a(int num, char *str, int radix)
 {
     char index[] = "0123456789ABCDEF";
     unsigned unum;
@@ -85,7 +87,7 @@ char *itoa_util(int num, char *str, int radix)
     return str;
 }
 
-void real2array_util(double data, char *a, unsigned char id, unsigned char dd)
+void float2arr(double data, char *a, unsigned char id, unsigned char dd)
 {   
     // id:integer digits，dd:decimal digits
     uint64_t temp1, temp2;
@@ -155,47 +157,9 @@ void real2array_util(double data, char *a, unsigned char id, unsigned char dd)
     }
 }
 
-void ecef2pos_util(const double *r, double *pos)
-{
-	double e2 = FE_WGS84 * (2.0 - FE_WGS84), r2 = r[0] * r[0] + r[1] * r[1];
-	double z, zk, v = RE_WGS84, sinp;
 
-	for (z = r[2], zk = 0.0; fabs(z - zk) >= 1E-4;)
-	{
-		zk = z;
-		sinp = z / sqrt(r2 + z * z);
-		v = RE_WGS84 / sqrt(1.0 - e2 * sinp * sinp);
-		z = r[2] + v * e2 * sinp;
-	}
-	pos[0] = r2 > 1E-12 ? atan(z / sqrt(r2)) : (r[2] > 0.0 ? PI / 2.0 : -PI / 2.0);
-	pos[1] = r2 > 1E-12 ? atan2(r[1], r[0]) : 0.0;
-	pos[2] = sqrt(r2 + z * z) - v;
-}
-
-void deg2dms_util(double deg, double *dms, int ndec)
-{
-	double sign = deg < 0.0 ? -1.0 : 1.0, a = fabs(deg);
-	double unit = pow(0.1, ndec);
-	dms[0] = floor(a);
-	a = (a - dms[0]) * 60.0;
-	dms[1] = floor(a);
-	a = (a - dms[1]) * 60.0;
-	dms[2] = floor(a / unit + 0.5) * unit;
-	if (dms[2] >= 60.0)
-	{
-		dms[2] = 0.0;
-		dms[1] += 1.0;
-		if (dms[1] >= 60.0)
-		{
-			dms[1] = 0.0;
-			dms[0] += 1.0;
-		}
-	}
-	dms[0] *= sign;
-}
-
-int print_nmea_gga_util(double *ep, double *xyz, int nsat, int type, double dop, 
-	                      double age, char *buff)
+int print_nmea_gga(double *ep, double *xyz, int nsat, int type, double dop, 
+	double age, char *buff)
 {
 	double h, pos[3], dms1[3], dms2[3];
 	char *p = (char *)buff, *q, sum;
@@ -208,63 +172,63 @@ int print_nmea_gga_util(double *ep, double *xyz, int nsat, int type, double dop,
 			sum ^= *q;
 		strcat(buff, "*");
 		memset(buf, 0, 20);
-		itoa_util(sum, buf, 16);
+		i2a(sum, buf, 16);
 		strcat(buff, buf);
 		strcat(buff, "\r\n");
 
 	}
 	else
 	{
-		ecef2pos_util(xyz, pos);
+		ecef2pos(xyz, pos);
 		h = 0.0; 
-		deg2dms_util(fabs(pos[0]) * RAD_TO_DEG, dms1, 7);
-		deg2dms_util(fabs(pos[1]) * RAD_TO_DEG, dms2, 7);
+		deg2dms(fabs(pos[0]) * RAD_TO_DEG, dms1, 7);
+		deg2dms(fabs(pos[1]) * RAD_TO_DEG, dms2, 7);
 
 		strcpy(buff,"$GPGGA,");
 
-		real2array_util(ep[3] * 10000 + ep[4] * 100 + ep[5] + 0.001, buf, 6, 2);
+		float2arr(ep[3] * 10000 + ep[4] * 100 + ep[5] + 0.001, buf, 6, 2);
 		strcat(buff, buf);
 		strcat(buff, ",");
 
 		memset(buf, 0, 20);
-		real2array_util(dms1[0] * 100 + dms1[1] + dms1[2] / 60.0, buf, 4, 7);
+		float2arr(dms1[0] * 100 + dms1[1] + dms1[2] / 60.0, buf, 4, 7);
 		strcat(buff, buf);
 		strcat(buff, pos[0] >= 0 ? ",N," : ",S,");
 
 		memset(buf, 0, 20);
-		real2array_util(dms2[0] * 100 + dms2[1] + dms2[2] / 60.0, buf, 5, 7);
+		float2arr(dms2[0] * 100 + dms2[1] + dms2[2] / 60.0, buf, 5, 7);
 		strcat(buff, buf);
 		strcat(buff, pos[1] >= 0 ? ",E," : ",W,");
 
 		memset(buf, 0, 20);
-		// real2array_util(type,buf,1,0);
-		itoa_util(type, buf, 10);
+		// float2arr(type,buf,1,0);
+		i2a(type, buf, 10);
 		strcat(buff, buf);
 		strcat(buff, ",");
 
 		memset(buf, 0, 20);
-		real2array_util(nsat, buf, 2, 0);
+		float2arr(nsat, buf, 2, 0);
 		buf[2] = 0;
 		strcat(buff, buf);
 		strcat(buff, ",");
 
 		memset(buf, 0, 20);
-		real2array_util(dop, buf, 0, 1);
+		float2arr(dop, buf, 0, 1);
 		strcat(buff, buf);
 		strcat(buff, ",");
 
 		memset(buf, 0, 20);
-		real2array_util(pos[2] - h, buf, 0, 3);
+		float2arr(pos[2] - h, buf, 0, 3);
 		strcat(buff, buf);
 		strcat(buff, ",M,");
 
 		memset(buf, 0, 20);
-		real2array_util(h, buf, 0, 3);
+		float2arr(h, buf, 0, 3);
 		strcat(buff, buf);
 		strcat(buff, ",M,");
 
 		memset(buf, 0, 20);
-		real2array_util(age, buf, 0, 1);
+		float2arr(age, buf, 0, 1);
 		strcat(buff, buf);
 		strcat(buff, ",");
 
@@ -273,7 +237,7 @@ int print_nmea_gga_util(double *ep, double *xyz, int nsat, int type, double dop,
 
 		strcat(buff, "*");
 		memset(buf, 0, 20);
-		itoa_util(sum, buf, 16);
+		i2a(sum, buf, 16);
 		strcat(buff, buf);
 
 		strcat(buff, "\r\n");
@@ -281,8 +245,8 @@ int print_nmea_gga_util(double *ep, double *xyz, int nsat, int type, double dop,
 	return strlen(buff);
 }
 
-void print_pos_gga_util(gtime_t time, double *pos, int num_of_sat, int fixID,
-	                     double hdop, double age, char *gga)
+void print_pos_gga(gtime_t time, double *pos, int num_of_sat, int fixID,
+	double hdop, double age, char *gga)
 {
 	double ep[6] = { 0.0 };
 	gtime_t ut;
@@ -293,7 +257,7 @@ void print_pos_gga_util(gtime_t time, double *pos, int num_of_sat, int fixID,
         {
             ut = gpst2utc(time);
             time2epoch(ut, ep);
-            print_nmea_gga_util(ep, pos, num_of_sat, fixID, hdop, age, gga);
+            print_nmea_gga(ep, pos, num_of_sat, fixID, hdop, age, gga);
         }
     }
 }

@@ -242,12 +242,16 @@ const char *ntrip_config_cgi_handler(int iIndex, int iNumParams, char *pcParam[]
 
 const char *user_config_cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
 {
+	int index_userPacketType, index_userPacketRate;
 	int index_leverArmBx, index_leverArmBy, index_leverArmBz;
 	int index_pointOfInterestBx, index_pointOfInterestBy, index_pointOfInterestBz;
 	int index_rotationRbvx, index_rotationRbvy, index_rotationRbvz;
+	BOOL result;
 
-	if (iNumParams == 9)
+	if (iNumParams == 11)
 	{
+		index_userPacketType = FindCGIParameter("userPacketType", pcParam, iNumParams);
+		index_userPacketRate = FindCGIParameter("userPacketRate", pcParam, iNumParams);
 		index_leverArmBx = FindCGIParameter("leverArmBx", pcParam, iNumParams);
 		index_leverArmBy = FindCGIParameter("leverArmBy", pcParam, iNumParams);
 		index_leverArmBz = FindCGIParameter("leverArmBz", pcParam, iNumParams);
@@ -258,10 +262,22 @@ const char *user_config_cgi_handler(int iIndex, int iNumParams, char *pcParam[],
 		index_rotationRbvy = FindCGIParameter("rotationRbvy", pcParam, iNumParams);
 		index_rotationRbvz = FindCGIParameter("rotationRbvz", pcParam, iNumParams);
 
-		if (index_leverArmBx != -1 && index_leverArmBy != -1 && index_leverArmBz != -1
+		if (index_userPacketType != -1 && index_userPacketRate != -1
+			&& index_leverArmBx != -1 && index_leverArmBy != -1 && index_leverArmBz != -1
 			&& index_pointOfInterestBx != -1 && index_pointOfInterestBy != -1 && index_pointOfInterestBz != -1
 			&& index_rotationRbvx != -1 && index_rotationRbvy != -1 && index_rotationRbvz != -1)
 		{
+			result = valid_user_config_parameter(USER_UART_PACKET_TYPE, (uint8_t*)pcValue[index_userPacketType]);
+			if (result){
+				memcpy(gUserConfiguration.userPacketType, pcValue[index_userPacketType], sizeof(gUserConfiguration.userPacketType)); 
+			}
+
+			uint16_t userPacketRate = atoi(pcValue[index_userPacketRate]);
+			result = valid_user_config_parameter(USER_UART_PACKET_RATE, (uint8_t*)&userPacketRate);
+			if (result){
+				gUserConfiguration.userPacketRate = userPacketRate;
+			}
+
 			gUserConfiguration.leverArmBx = atof(pcValue[index_leverArmBx]);
 			gUserConfiguration.leverArmBy = atof(pcValue[index_leverArmBy]);
 			gUserConfiguration.leverArmBz = atof(pcValue[index_leverArmBz]);
@@ -271,6 +287,9 @@ const char *user_config_cgi_handler(int iIndex, int iNumParams, char *pcParam[],
 			gUserConfiguration.rotationRbvx = atof(pcValue[index_rotationRbvx]);
 			gUserConfiguration.rotationRbvy = atof(pcValue[index_rotationRbvy]);
 			gUserConfiguration.rotationRbvz = atof(pcValue[index_rotationRbvz]);
+
+            update_system_para();
+            update_user_para();
 			SaveUserConfig();
 		}
 	}
@@ -319,10 +338,16 @@ const char *ntrip_config_js_handler(int iIndex, int iNumParams, char *pcParam[],
 
 const char *user_config_js_handler(int iIndex, int iNumParams, char *pcParam[], char *pcValue[])
 {
+	uint8_t userPacketType[3];
+
 	memset(http_response, 0, HTTP_JS_RESPONSE_SIZE);
 	memset(http_response_body, 0, HTTP_JS_RESPONSE_SIZE);
 
-	sprintf((char *)http_response_body, "UserConfigCallback({\"leverArmBx\":\"%f\",\"leverArmBy\":\"%f\",\"leverArmBz\":\"%f\",\"pointOfInterestBx\":\"%f\",\"pointOfInterestBy\":\"%f\",\"pointOfInterestBz\":\"%f\",\"rotationRbvx\":\"%f\",\"rotationRbvy\":\"%f\",\"rotationRbvz\":\"%f\"})",
+	memcpy(userPacketType, gUserConfiguration.userPacketType, sizeof(gUserConfiguration.userPacketType));
+	userPacketType[3] = 0;
+	sprintf((char *)http_response_body, "UserConfigCallback({\"userPacketType\":\"%s\",\"userPacketRate\":\"%d\",\"leverArmBx\":\"%f\",\"leverArmBy\":\"%f\",\"leverArmBz\":\"%f\",\"pointOfInterestBx\":\"%f\",\"pointOfInterestBy\":\"%f\",\"pointOfInterestBz\":\"%f\",\"rotationRbvx\":\"%f\",\"rotationRbvy\":\"%f\",\"rotationRbvz\":\"%f\"})",
+			userPacketType,
+			gUserConfiguration.userPacketRate,
 			gUserConfiguration.leverArmBx,
 			gUserConfiguration.leverArmBy,
 			gUserConfiguration.leverArmBz,

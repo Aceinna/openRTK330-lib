@@ -28,6 +28,6 @@ limitations under the License.
 #define _COMM_API_H
 
 extern void ProcessUserCommands(void);
-extern void SendContinuousPacket();
+extern void SendContinuousPacket(void);
 
 #endif

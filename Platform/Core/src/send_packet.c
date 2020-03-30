@@ -53,8 +53,7 @@ void _UcbFactory1(uint16_t port, UcbPacketStruct *ptrUcbPacket);
 void _UcbFactory2(uint16_t port, UcbPacketStruct *ptrUcbPacket);
 void _UcbFactory3(uint16_t port, UcbPacketStruct *ptrUcbPacket);
 
-uint8_t divideCount = 10; /// continuous packet rate divider - set initial delay
-uint8_t divideCount_py = 10; 
+uint8_t divideCount = 200; /// continuous packet rate divider - set initial delay
 
 static  UcbPacketStruct continuousUcbPacket; 
 
@@ -509,6 +508,36 @@ void SendUcbPacket(uint16_t port,
     }
 }
 
+void send_gnss_data(void)
+{
+    uint8_t type [UCB_PACKET_TYPE_LENGTH];
+    obs_t* ptr_rover_obs = &g_ptr_gnss_data->rov;
+    
+    if (g_gnss_sol.gnss_update == 1){
+        if (checkUserOutPacketType(gConfiguration.packetCode) == UCB_USER_OUT){
+            // pS 0x7053
+            type[0] = 0x70;
+            type[1] = 0x53;
+            continuousUcbPacket.packetType = UcbPacketBytesToPacketType(type);
+            SendUcbPacket(UART_USER, &continuousUcbPacket);
+
+            //sK 0x734B
+            type[0] = 0x73;
+            type[1] = 0x4B;
+            continuousUcbPacket.packetType = UcbPacketBytesToPacketType(type);
+            // skyview data may more than one packet
+            uint8_t snum = ptr_rover_obs->n / 10;
+            if (ptr_rover_obs->n % 10 != 0){
+                snum++;
+            }
+            for (uint8_t i = 0; i < snum; i++){
+                SendUcbPacket(UART_USER, &continuousUcbPacket);
+            }
+        }
+        g_gnss_sol.gnss_update = 0;
+    }
+}
+
 /** ****************************************************************************
  * @name SendContinuousPacket
  *
@@ -524,24 +553,18 @@ void SendUcbPacket(uint16_t port,
  * @param [Out] N/A
  * @retval N/A
  ******************************************************************************/
-void SendContinuousPacket()
+void SendContinuousPacket(void)
 {
-    // here we come at 100 Hz
     uint8_t type [UCB_PACKET_TYPE_LENGTH];
-    uint16_t divider = configGetPacketRateDivider(gConfiguration.packetRateDivider);
-    int port = 0;
+    uint16_t divider = 1;
+    //uint16_t divider = configGetPacketRateDivider(gConfiguration.packetRateDivider); 
 
-    if (divider < 2){
-        divider = 2;
-    }
-    divider = divider / 2;
-
-    if  (divider != 0) { ///< check for quiet mode
+    if (divider != 0) { ///< check for quiet mode
         if (divideCount == 1) {
             gConfiguration.packetCode = 0x7331; //s1
             /// get enum for requested continuous packet type
             type[0] = (uint8_t)((gConfiguration.packetCode >> 8) & 0xff);
-            type[1] = (uint8_t) (gConfiguration.packetCode & 0xff);
+            type[1] = (uint8_t)(gConfiguration.packetCode & 0xff);
 
             /// set continuous output packet type based on configuration
             continuousUcbPacket.packetType = UcbPacketBytesToPacketType(type);
@@ -552,5 +575,8 @@ void SendContinuousPacket()
             --divideCount;
         }
     }
-} 
 
+    // send 'pS' packet and 'sK' packet, will display in the web GUI through python driver
+    // need to fill the data in 'Fill_posPacketPayload' and 'Fill_skyviewPacketPayload'
+    send_gnss_data();
+} 

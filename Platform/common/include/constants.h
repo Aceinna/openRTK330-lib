@@ -52,8 +52,8 @@ typedef unsigned char BOOL;
 #define D2R        ( 0.017453292519943 ) ///< ( PI/180.0 ) = 0.017453292519943
 #define R2D         57.29577951308232
 
-// #define DEG2RAD(d)  ( (d) * D2R )
-// #define RAD2DEG(r)  ( (r) * R2D )
+#define RE_WGS84    6378137.0               /* earth semimajor axis (WGS84) (m) */
+#define FE_WGS84    (1.0/298.257223563)     /* earth flattening (WGS84) */
 
 #define SIGMA        1.0e-8
 #define KNOT2MPSEC   5.144444444e-1
@@ -80,7 +80,9 @@ typedef unsigned char BOOL;
 
 // PI and related values
 #define  TWO_PI        6.283185307179586
-// #define  PI            3.141592653589793
+#ifndef PI
+#define  PI            3.1415926535897932
+#endif
 #define  PI_OVER_TWO   1.570796326794897
 #define  PI_OVER_FOUR  0.785398163397448
 #define  PI_OVER_SIX   0.523598775598299
@@ -104,7 +106,8 @@ typedef unsigned char BOOL;
 #define MIN_TO_MILLISECONDS 60000.0
 
 /// Specify the data acquisition task rate of the system in Hz. Due to the way data is collected,
-/// this is different than the sampling rate of the sensors.  Note: must be 100 or 200.
+/// this is different than the sampling rate of the sensors.  Note: must be 50 or 100 or 200.
+#define  DACQ_50_HZ         50
 #define  DACQ_100_HZ        100
 #define  DACQ_200_HZ        200
 #define  DACQ_RATE_INVALID  0

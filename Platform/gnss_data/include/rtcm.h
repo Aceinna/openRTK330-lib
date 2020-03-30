@@ -32,8 +32,6 @@ extern "C" {
 #define PI          3.1415926535897932      /* pi */
 #endif
 #define OMGE        7.2921151467E-5         /* earth angular velocity (IS-GPS) (rad/s) */
-#define RE_WGS84    6378137.0               /* earth semimajor axis (WGS84) (m) */
-#define FE_WGS84    (1.0/298.257223563)     /* earth flattening (WGS84) */
 
 #ifndef NFREQ
 #define NFREQ 2
@@ -267,6 +265,32 @@ extern "C" {
 /*----------------------- Define structs -------------------------------*/
 
 
+typedef struct
+{
+    int32_t message_number;
+    int32_t sub_type_id;
+    int32_t ref_station_id;
+    int32_t reserved_itrf;
+    int32_t gnss_quality_indicator;
+    int32_t num_sat_in_view;
+    int32_t num_sat_in_use;
+    float hdop;
+    float vdop;
+    float pdop;
+    float geoidal_separation;
+    int32_t diff_age;
+    int32_t diff_ref_station_id;
+    int32_t gnss_id;
+    int32_t gnss_epoch_time;
+    int32_t ext_gps_week_number;
+    int32_t leap_seconds;
+    double pos_xyz[3];
+    float vel_xyz[3];
+
+    int8_t flag_gnss_update;
+} st_pvt_type999_t;
+
+
 #ifdef _USE_PPP_
 typedef struct                            /* Iono Layers */
 {
@@ -351,6 +375,7 @@ typedef struct {                         /* RTCM control struct type */
     unsigned int  type;                    /* last rtcm type */
     unsigned char buff[1200];              /* message buffer */
 	unsigned char key;
+    st_pvt_type999_t st_pvt;
 } rtcm_t;
 
 typedef struct
@@ -485,35 +510,6 @@ static int add_obs(obsd_t* obsd, obs_t* obs);
 static int add_eph(eph_t* eph, nav_t* nav);
 static int add_geph(geph_t* eph, nav_t* nav);
 
-/*--------------------------------------------------------------------*/
-typedef struct
-{
-    int32_t Massage_Number;
-    int32_t Sbu_Type_ID;
-    int32_t Reference_Station_ID;
-    int32_t Reserved_ITRF;
-    int32_t GPS_Quality_Indicator;
-    int32_t Number_satellites_use;
-    int32_t Number_satellites_view;
-    float HDOP;
-    float VDOP;
-    float PDOP;
-    float Geoidal_separation;
-    int32_t Age_Differentials;
-    int32_t Differential_Reference_Station_ID;
-    int32_t GNSS_ID;
-    int32_t GNSS_Epoch_Time;
-    int32_t Extended_Week_Number;
-    int32_t Leap_Seconds;
-    double Antenna_Position_ECEF_XYZ[3];
-    // double Antenna_Position_ECEF_Y;
-    // double Antenna_Position_ECEF_Z;
-    float Antenna_Velocity_ECEF_X;
-    float Antenna_Velocity_ECEF_Y;
-    float Antenna_Velocity_ECEF_Z;
-
-} RTCM_999_Receiver_PVT_STRUCT;
-extern RTCM_999_Receiver_PVT_STRUCT RTCM_999_Receiver_PVT;
 #ifdef __cplusplus
 }
 #endif

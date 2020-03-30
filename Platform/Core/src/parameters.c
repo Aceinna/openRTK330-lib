@@ -21,7 +21,6 @@
 #include "parameters.h"
 #include "eepromAPI.h"
 #include "constants.h"
-#include "qmath.h"
 #include "Indices.h"
 #ifndef SENSOR_UNUSED
     // #include "sensors_data.h"
