@@ -261,5 +261,5 @@ int print_pos_gga(gtime_t time, double *pos, int num_of_sat, int fixID,
         }
     }
 
-    return 0
+    return 0;
 }
