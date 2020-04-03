@@ -42,7 +42,7 @@ typedef struct  {
 
     double latitude; // latitude ,  degrees 
     double longitude; // longitude,  degrees 
-    double altitude; // above mean sea level [m]
+    double height; // above mean sea level [m]
     double pos_ecef[3];
     float vel_ned[3]; // velocities,  m/s  NED (North East Down) x, y, z
     float heading; // [deg]
@@ -58,6 +58,7 @@ typedef struct  {
     float std_vd;
 
 } gnss_solution_t;
+
 extern gnss_solution_t g_gnss_sol;
 
 typedef struct {                        /* rtcm data struct */
