@@ -1,6 +1,6 @@
 {
 	"name": "OpenRTK-base-library",
- 	"version": "1.0.5",
+ 	"version": "1.0.6",
  	"description": "OpenRTK Base Library",
     "keywords": "sensors, RTK, INS, AI, automotive, navigation",
  	"repository":
@@ -39,17 +39,12 @@
 
 			"-I FreeRTOS/include",
 			"-I FreeRTOS/",
-			"-I FreeRtos_M4/include",
 			
 			"-I Sensors/Core",
 			"-I Sensors/Core/include",
 			"-I Sensors/",	
 			"-L Sensors/",	
-			"-l libSensors.a",
-
-			"-I GNSS",
-			"-L GNSS/",	
-			"-l libGNSS.a"
+			"-l libSensors.a"
 		],
 		"libArchive": false,
         "platforms": "aceinna_imu"
