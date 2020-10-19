@@ -1,6 +1,6 @@
 {
 	"name": "OpenRTK-base-library",
- 	"version": "1.0.6",
+ 	"version": "1.0.7",
  	"description": "OpenRTK Base Library",
     "keywords": "sensors, RTK, INS, AI, automotive, navigation",
  	"repository":
@@ -26,25 +26,37 @@
 			"-I LWIP/lwip_app/user/inc",
 			"-I LWIP/lwip_app/webserver/inc",
 			"-I LWIP/lwip_app/ntrip/inc" ,
+			"-I LWIP/lwip_app/station/inc" ,
+			"-I LWIP/lwip_app/driver_tcp/inc" ,
+			"-I LWIP/lwip_app/driver_tcp" ,
 			"-I LWIP/",
 
-			"-I Platform/",
-			"-I Platform/Core/include",
-			"-I Platform/Board/include",
-			"-I Platform/Filter/include",
-			"-I Platform/Driver/include",
-			"-I Platform/cJSON/inc",
-			"-I Platform/gnss_data/include",
-			"-I Platform/common/include",
+            "-I mbedTLS/lib/include",
+			"-I mbedTLS/lib/include/mbedtls",
+            "-I mbedTLS/app/inc",
+			"-I mbedTLS/",
 
-			"-I FreeRTOS/include",
-			"-I FreeRTOS/",
-			
-			"-I Sensors/Core",
-			"-I Sensors/Core/include",
-			"-I Sensors/",	
-			"-L Sensors/",	
-			"-l libSensors.a"
+			"-I Platform/",
+			"-I Platform/core/include",
+			"-I Platform/board/include",
+			"-I Platform/filter/include",
+			"-I Platform/driver/include",
+			"-I Platform/cjson/inc",
+			"-I Platform/gnss_data/include",
+            "-I Platform/common/include",
+            "-I Platform/can/include",
+			"-I Platform/bt/include",
+			"-I free_rtos/include",
+			"-I free_rtos/",
+			"-I free_rtos/include",
+		
+            "-I Sensors",
+			"-L Sensors/",
+			"-l libSensors.a",
+
+            "-I INS",
+			"-L INS/",
+			"-l libINS.a"
 		],
 		"libArchive": false,
         "platforms": "aceinna_imu"

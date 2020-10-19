@@ -16,7 +16,7 @@ extern int gIsrDisableCount;
 
 #define  getSystemTime()          osKernelSysTick()
 #define  getSystemTimeAsDouble() (double)osKernelSysTick()/configTICK_RATE_HZ;
-
+#define  timeElapsed(since)       (osKernelSysTick() - since)
 
 
 #define OS_INFINITE_TIMEOUT portMAX_DELAY

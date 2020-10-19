@@ -89,3 +89,22 @@ void ecef2ned(const double *xyz, double *ned)
 	ned[1] = C_en[0][1] * xyz[0] + C_en[1][1] * xyz[1] + C_en[2][1] * xyz[2];
 	ned[2] = C_en[0][2] * xyz[0] + C_en[1][2] * xyz[1] + C_en[2][2] * xyz[2];
 }
+
+/* transform geodetic to ecef position -----------------------------------------
+* transform geodetic position to ecef position
+* args   : double *pos      I   geodetic position {lat,lon,h} (rad,m)
+*          double *r        O   ecef position {x,y,z} (m)
+* return : none
+* notes  : WGS84, ellipsoidal height
+*-----------------------------------------------------------------------------*/
+void pos2ecef(const double *pos, double *r)
+{
+	double sinp = sin(pos[0]), cosp = cos(pos[0]), sinl = sin(pos[1]);
+	double cosl = cos(pos[1]);
+	double e2 = FE_WGS84 * (2.0 - FE_WGS84);
+	double v = RE_WGS84 / sqrt(1.0 - e2 * sinp * sinp);
+
+	r[0] = (v + pos[2]) * cosp * cosl;
+	r[1] = (v + pos[2]) * cosp * sinl;
+	r[2] = (v * (1.0 - e2) + pos[2]) * sinp;
+}

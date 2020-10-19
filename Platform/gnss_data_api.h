@@ -31,6 +31,19 @@ limitations under the License.
 #include "rtcm.h"
 #include "timer.h"
 
+#pragma pack(1)
+
+typedef struct {
+    uint8_t  satelliteId;
+    uint8_t  systemId;
+    uint8_t  antennaId;
+    uint8_t  l1cn0;
+    uint8_t  l2cn0;
+    float    azimuth;
+    float    elevation;
+    float    snr;
+} satellite_struct;
+
 typedef struct  {
     uint16_t gps_week;
     uint32_t gps_tow; // gps Time Of Week, miliseconds
@@ -57,9 +70,19 @@ typedef struct  {
     float std_ve;
     float std_vd;
 
+    uint8_t rov_n;
+    satellite_struct rov_satellite[MAXOBS];
 } gnss_solution_t;
 
+typedef struct  {
+    uint8_t rov_n;
+    satellite_struct rov_satellite[MAXOBS];
+} sky_view_t;
+#pragma pack()
+
 extern gnss_solution_t g_gnss_sol;
+extern gnss_solution_t* g_ptr_gnss_sol;
+
 
 typedef struct {                        /* rtcm data struct */
     gnss_rtcm_t rtcm; /* store RTCM data struct for RTK and PPP */
@@ -70,6 +93,9 @@ typedef struct {                        /* rtcm data struct */
     nav_t nav;
 } gnss_raw_data_t;
 extern gnss_raw_data_t *g_ptr_gnss_data;
+
+extern uint8_t rtcm_decode_completion;
+extern uint32_t rtcm_decode_length;
 
 extern int input_rtcm3_data(rtcm_t *rtcm, unsigned char data, obs_t *obs, nav_t *nav);
 extern int input_rtcm3(unsigned char data, unsigned int stnID, gnss_rtcm_t *gnss);

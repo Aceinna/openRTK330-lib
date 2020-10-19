@@ -11,10 +11,11 @@
 #define __CALIBRATION_API_H
 #include <stdint.h>
 
+void     compare_sensors_result();
 void     InitFactoryCalibration(void);
 void     ApplyFactoryCalibration(void);
 uint32_t GetUnitSerialNum();
-uint8_t *GetUnitVersion();
+uint8_t* GetUnitVersion();
 int      CalibrationTableValid(int idx) ;
 uint16_t GetProductConfiguration();
 

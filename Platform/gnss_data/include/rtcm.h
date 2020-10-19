@@ -290,6 +290,39 @@ typedef struct
     int8_t flag_gnss_update;
 } st_pvt_type999_t;
 
+typedef struct
+{
+    int32_t massage_number;
+    int32_t sbu_type_id;
+    int32_t reference_station_id;
+    int32_t reserved_itrf;
+    int32_t GPS_quality_indicator;
+    int32_t number_satellites_use;
+    int32_t number_satellites_view;
+    float hdop;
+    float vdop;
+    float pdop;
+    float geoidal_separation;
+    int32_t age_differentials;
+    int32_t differential_reference_station_id;
+    int32_t gnss_id;
+    int32_t gnss_epoch_time;
+    int32_t extended_week_number;
+    int32_t leap_seconds;
+    double latitude;
+    double longitude;
+    double height;
+    double velocity_horizontal;
+    double velocity_vertical;
+    int course_angle;
+    double protection_level_horizontal;
+    double protection_level_vertical;
+    double protection_level_angle;
+    int64_t receiver_clock_bias;
+    int64_t receiver_clock_drift;
+
+    int8_t flag_gnss_update;
+} st_epvt_type999_t;
 
 #ifdef _USE_PPP_
 typedef struct                            /* Iono Layers */
@@ -376,6 +409,7 @@ typedef struct {                         /* RTCM control struct type */
     unsigned char buff[1200];              /* message buffer */
 	unsigned char key;
     st_pvt_type999_t st_pvt;
+    st_epvt_type999_t st_epvt;
 } rtcm_t;
 
 typedef struct
@@ -472,6 +506,9 @@ static const int codes_sbs[] = {
 extern void trace (int level, const char *format, ...);
 
 extern unsigned int rtcm_getbitu(const unsigned char *buff, int pos, int len);
+extern void setbitu(unsigned char *buff, int pos, int len, unsigned int data);
+extern void rtcm_setbits_38(unsigned char *buff, int pos, double data);
+extern unsigned int rtk_crc24q(const unsigned char *buff, int len);
 
 /* glo frquent number function */
 extern void set_glo_frq(unsigned char prn, int frq);

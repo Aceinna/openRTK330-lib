@@ -14,4 +14,6 @@
 //#pragma once
 void pps_exit_init(void);
 extern uint8_t get_gnss_signal_flag();
+void PLUSE_IRQ();
+
 #endif

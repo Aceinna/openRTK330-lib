@@ -42,6 +42,20 @@
 #include "sensorsAPI.h"
 #include "user_message.h"
 #include "Indices.h"
+#include "app_version.h"
+#include "cJSON.h"
+#include "user_config.h"
+#include "uart.h"
+#include "spi.h"
+#include <stdlib.h>
+#include "tcp_driver.h"
+
+
+#ifdef INS_APP
+#include "ins_interface_API.h"
+// #include "insoutmsg.h"
+// extern GnssInsSystem mGnssInsSystem;
+#endif
 
 void _UcbIdentification(uint16_t port, UcbPacketStruct *ptrUcbPacket);
 void _UcbVersionData(uint16_t port, UcbPacketStruct *ptrUcbPacket);
@@ -56,6 +70,12 @@ void _UcbFactory3(uint16_t port, UcbPacketStruct *ptrUcbPacket);
 uint8_t divideCount = 200; /// continuous packet rate divider - set initial delay
 
 static  UcbPacketStruct continuousUcbPacket; 
+
+uint8_t debug_com_log_on = 0;
+uint32_t debug_p1_log_delay = 0;
+
+extern void sendP1Packet(uint8_t gps_update);
+
 
 /** ****************************************************************************
  * @name _UcbIdentification send ID packet
@@ -295,6 +315,10 @@ void _UcbScaledM(uint16_t port,
     packetIndex = uint16ToBuffer(ptrUcbPacket->payload, /// sampleIdx
                                  packetIndex,
                                  sampleIdx++);
+    
+    packetIndex = uint16ToBuffer(ptrUcbPacket->payload, /// BIT status
+                                  packetIndex,
+                                  gBitStatus.BITStatus.all );
 
     if (platformGetUnitCommunicationType() == UART_COMM)
     {
@@ -508,11 +532,95 @@ void SendUcbPacket(uint16_t port,
     }
 }
 
+
+void debug_com_rx_data_handle(void)
+{
+    uint8_t dataBuffer[512];
+    int bytes_in_buffer = 0;
+    cJSON *root, *fmt;
+    char *out;
+
+    bytes_in_buffer = uart_read_bytes(UART_DEBUG, dataBuffer, sizeof(dataBuffer), 0);
+    if (bytes_in_buffer > 0){
+        if (strstr((const char*)dataBuffer, "get configuration\r\n") != NULL)
+        {
+            root = cJSON_CreateObject();
+            cJSON_AddItemToObject(root, "openrtk configuration", fmt = cJSON_CreateObject());
+            cJSON_AddItemToObject(fmt, "Product Name", cJSON_CreateString(PRODUCT_NAME_STRING));
+            cJSON_AddItemToObject(fmt, "Product PN", cJSON_CreateString((const char *)platformBuildInfo()));
+            cJSON_AddItemToObject(fmt, "Product SN", cJSON_CreateNumber(GetUnitSerialNum()));
+            cJSON_AddItemToObject(fmt, "Version", cJSON_CreateString(APP_VERSION_STRING));
+
+            uint8_t *user_packet_type = get_user_packet_type();
+            char packet_type_str[5] = {0};
+            packet_type_str[0] = user_packet_type[0];
+            packet_type_str[1] = user_packet_type[1];
+
+            uint16_t user_packet_rate = get_user_packet_rate();
+
+            cJSON_AddItemToObject(fmt, "userPacketType", cJSON_CreateString(packet_type_str));
+            cJSON_AddItemToObject(fmt, "userPacketRate", cJSON_CreateNumber(user_packet_rate));
+
+            float *ins_para = get_user_ins_para();
+            cJSON_AddItemToObject(fmt, "leverArmBx", cJSON_CreateNumber(*ins_para));
+            cJSON_AddItemToObject(fmt, "leverArmBy", cJSON_CreateNumber(*(ins_para + 1)));
+            cJSON_AddItemToObject(fmt, "leverArmBz", cJSON_CreateNumber(*(ins_para + 2)));
+            cJSON_AddItemToObject(fmt, "pointOfInterestBx", cJSON_CreateNumber(*(ins_para + 3)));
+            cJSON_AddItemToObject(fmt, "pointOfInterestBy", cJSON_CreateNumber(*(ins_para + 4)));
+            cJSON_AddItemToObject(fmt, "pointOfInterestBz", cJSON_CreateNumber(*(ins_para + 5)));
+            cJSON_AddItemToObject(fmt, "rotationRbvx", cJSON_CreateNumber(*(ins_para + 6)));
+            cJSON_AddItemToObject(fmt, "rotationRbvy", cJSON_CreateNumber(*(ins_para + 7)));
+            cJSON_AddItemToObject(fmt, "rotationRbvz", cJSON_CreateNumber(*(ins_para + 8)));
+
+            out = cJSON_Print(root);
+            cJSON_Delete(root);
+
+            uart_write_bytes(UART_DEBUG, out, strlen(out), 1);
+            free(out);
+            debug_com_log_on = 0;
+        }
+        if (strstr((const char*)dataBuffer, "log debug on\r\n") != NULL)
+        {
+            debug_com_log_on = 1;
+            debug_p1_log_delay = 100;
+        }
+    }
+}
+
 void send_gnss_data(void)
 {
     uint8_t type [UCB_PACKET_TYPE_LENGTH];
-    obs_t* ptr_rover_obs = &g_ptr_gnss_data->rov;
     
+#ifdef INS_APP
+    if (checkUserOutPacketType(gConfiguration.packetCode) == UCB_USER_OUT){
+        if (get_mGnssInsSystem_mlc_STATUS() == 4 || g_gnss_sol.gnss_update == 1){
+            // pS 0x7053
+            type[0] = 0x70;
+            type[1] = 0x53;
+            continuousUcbPacket.packetType = UcbPacketBytesToPacketType(type);
+            SendUcbPacket(UART_USER, &continuousUcbPacket);
+        }
+        
+        if (g_gnss_sol.gnss_update == 1){
+            //sK 0x734B
+            type[0] = 0x73;
+            type[1] = 0x4B;
+            continuousUcbPacket.packetType = UcbPacketBytesToPacketType(type);
+
+            uint8_t snum;
+            // skyview data may more than one packet
+            snum = g_ptr_gnss_sol->rov_n / 10;
+            if (g_ptr_gnss_sol->rov_n % 10 != 0){
+                snum++;
+            }
+
+            for (uint8_t i = 0; i < snum; i++){
+                SendUcbPacket(UART_USER, &continuousUcbPacket);
+            }
+        }
+    }
+    g_gnss_sol.gnss_update = 0;
+#else
     if (g_gnss_sol.gnss_update == 1){
         if (checkUserOutPacketType(gConfiguration.packetCode) == UCB_USER_OUT){
             // pS 0x7053
@@ -525,17 +633,28 @@ void send_gnss_data(void)
             type[0] = 0x73;
             type[1] = 0x4B;
             continuousUcbPacket.packetType = UcbPacketBytesToPacketType(type);
+
+            uint8_t snum;
             // skyview data may more than one packet
-            uint8_t snum = ptr_rover_obs->n / 10;
-            if (ptr_rover_obs->n % 10 != 0){
-                snum++;
+            if (strstr(APP_VERSION_STRING, "RAWDATA")){
+                snum = g_ptr_gnss_data->rov.n / 10;
+                if (g_ptr_gnss_data->rov.n % 10 != 0){
+                    snum++;
+                }
+            } else{
+                snum = g_ptr_gnss_sol->rov_n / 10;
+                if (g_ptr_gnss_sol->rov_n % 10 != 0){
+                    snum++;
+                }
             }
+
             for (uint8_t i = 0; i < snum; i++){
                 SendUcbPacket(UART_USER, &continuousUcbPacket);
             }
         }
         g_gnss_sol.gnss_update = 0;
     }
+#endif
 }
 
 /** ****************************************************************************
@@ -553,15 +672,180 @@ void send_gnss_data(void)
  * @param [Out] N/A
  * @retval N/A
  ******************************************************************************/
+extern client_s driver_data_client;
+static void fill_imu_data()
+{
+    double   accel_g[3];
+    float   rate_dps[3];
+    char sum = 0;
+    uint8_t imu_data_buf[500] = {0};
+    GetAccelData_mPerSecSq(accel_g);
+    GetRateData_degPerSec(rate_dps);
+    double gga_time = get_gnss_time();
+	int data_len = sprintf((char*)imu_data_buf,"$GPIMU,%6.2f,%14.4f,%14.4f,%14.4f,%14.4f,%14.4f,%14.4f,",    \
+		gga_time,accel_g[0], accel_g[1],accel_g[2], \
+		rate_dps[0],rate_dps[1],rate_dps[2]);
+    for(int i = 0;i < data_len;i++)
+    {
+        sum ^= imu_data_buf[i];
+    }
+    int end_len = sprintf((char*)imu_data_buf + strlen((char*)imu_data_buf),"%02x\r\n",sum);
+    if (debug_com_log_on) {
+        uart_write_bytes(UART_DEBUG,(const char*)imu_data_buf,data_len + end_len,1);
+    }
+    if(get_tcp_data_driver_state() == CLIENT_STATE_INTERACTIVE)
+    {
+        //driver_data_push((const char*)imu_data_buf,data_len + end_len);
+        client_write_data(&driver_data_client,(const char*)imu_data_buf,data_len + end_len,0x01);
+    }
+}
+
+
+#ifdef INCEPTIO
+static  UcbPacketStruct inceptioUcbPacket;
+uint8_t rawimuPacketDivide = 0;
+uint8_t inspvaPacketDivide = 0;
+uint8_t insstdPacketDivide = 0;
+uint8_t bestgnssPacketDivide = 0;
+uint8_t rawimuPacketRate = 0;
+uint8_t inspvaPacketRate = 0;
+uint8_t insstdPacketRate = 0;
+uint8_t bestgnssPacketRate = 0;
+
+#endif
+uint8_t spi_buff[SPI_BUF_SIZE];
+
 void SendContinuousPacket(void)
 {
-    uint8_t type [UCB_PACKET_TYPE_LENGTH];
+    uint8_t type[UCB_PACKET_TYPE_LENGTH];
+
+#ifdef INCEPTIO
+    // come here 100Hz
+    static char s1_buff[50] = {0};
+    static char iN_buff[50] = {0};
+    static char d1_buff[50] = {0};
+    static char gN_buff[50] = {0};
+    static char sT_buff[20] = {0};
+    static char s1_len = 43,iN_len = 45,d1_len = 37,gN_len = 45,sT_len = 19;
+
+    // RAWIMU s1
+    if (rawimuPacketRate != PACKET_RATE_QUIET && mGnssInsSystem.mlc_STATUS == INS_FUSING) {
+        if (rawimuPacketDivide >= rawimuPacketRate) {
+            gConfiguration.packetCode = 0x7331;
+            type[0] = 0x73;
+            type[1] = 0x31;
+            inceptioUcbPacket.packetType = UcbPacketBytesToPacketType(type);
+            SendUcbPacket(UART_USER, &inceptioUcbPacket);
+            rawimuPacketDivide = 1;
+
+            memset(s1_buff,0,50);
+            memcpy((char *)s1_buff,(const char *)&inceptioUcbPacket.sync_MSB, inceptioUcbPacket.payloadLength + 7);
+            s1_len = inceptioUcbPacket.payloadLength + 7;
+        } else {
+            rawimuPacketDivide++;
+        }
+    }
+    
+    // INSPVA iN
+    if (inspvaPacketRate != PACKET_RATE_QUIET) {
+        if (inspvaPacketDivide >= inspvaPacketRate) {
+            gConfiguration.packetCode = 0x694E;
+            type[0] = 0x69;
+            type[1] = 0x4E;
+            inceptioUcbPacket.packetType = UcbPacketBytesToPacketType(type);
+            SendUcbPacket(UART_USER, &inceptioUcbPacket);
+            inspvaPacketDivide = 1;
+
+            memset(iN_buff,0,50);
+            memcpy((char *)iN_buff,(const char *)&inceptioUcbPacket.sync_MSB, inceptioUcbPacket.payloadLength + 7);
+            iN_len = inceptioUcbPacket.payloadLength + 7;
+        } else {
+            inspvaPacketDivide++;
+        }
+    }
+
+    // INSSTD d1
+    if (insstdPacketRate != PACKET_RATE_QUIET) {
+        if (insstdPacketDivide >= insstdPacketRate) {
+            gConfiguration.packetCode = 0x6431;
+            type[0] = 0x64;
+            type[1] = 0x31;
+            inceptioUcbPacket.packetType = UcbPacketBytesToPacketType(type);
+            SendUcbPacket(UART_USER, &inceptioUcbPacket);
+            insstdPacketDivide = 1;
+
+            memset(d1_buff,0,50);  
+            memcpy((char *)d1_buff,(const char *)&inceptioUcbPacket.sync_MSB, inceptioUcbPacket.payloadLength + 7);
+            d1_len = inceptioUcbPacket.payloadLength + 7;   
+        } else {
+            insstdPacketDivide++;
+        }
+    }
+
+    // BESTGNSS gN
+    // if (bestgnssPacketRate != PACKET_RATE_QUIET) {
+    // if (bestgnssPacketDivide >= bestgnssPacketRate) {
+        // 1Hz 
+        if (g_gnss_sol.gnss_update == 1) {
+            gConfiguration.packetCode = 0x674E;
+            type[0] = 0x67;
+            type[1] = 0x4E;
+            inceptioUcbPacket.packetType = UcbPacketBytesToPacketType(type);
+            SendUcbPacket(UART_USER, &inceptioUcbPacket);
+        
+            g_gnss_sol.gnss_update = 0;
+            memset(gN_buff,0,50);
+            memcpy((char *)gN_buff,(const char *)&inceptioUcbPacket.sync_MSB, inceptioUcbPacket.payloadLength + 7);
+            gN_len = inceptioUcbPacket.payloadLength + 7;
+        }
+    //     bestgnssPacketDivide = 1;
+    // } else {
+    //     bestgnssPacketDivide++;
+    // }
+    // }
+//STATUS sT
+    gConfiguration.packetCode = 0x7354;
+    type[0] = 0x73;
+    type[1] = 0x54;
+    inceptioUcbPacket.packetType = UcbPacketBytesToPacketType(type);
+    SendUcbPacket(UART_USER, &inceptioUcbPacket);
+
+    memset(sT_buff,0,20);
+    memcpy((char *)sT_buff,(const char *)&inceptioUcbPacket.sync_MSB, inceptioUcbPacket.payloadLength + 7);
+    sT_len = inceptioUcbPacket.payloadLength + 7;
+
+    memset(spi_buff,0,SPI_BUF_SIZE);
+    memcpy((char *)spi_buff,s1_buff,s1_len);
+    memcpy((char *)spi_buff+s1_len,iN_buff,iN_len);
+    memcpy((char *)spi_buff+s1_len+iN_len,d1_buff,d1_len);
+    memcpy((char *)spi_buff+s1_len+iN_len+d1_len,gN_buff,gN_len);
+    memcpy((char *)spi_buff+s1_len+iN_len+d1_len+gN_len,sT_buff,sT_len);    
+    // uart_write_bytes(UART_DEBUG,(char *)spi_buff,170+19,1);
+    spi_ready_flag ++;
+    if (spi_ready_flag >= 2)
+    {
+        spi_ready_flag = 1;
+        MX_SPI5_Init();
+    }
+    
+    DRDY_ON();
+
+#else
+
+#ifdef INS_APP
+    // 100Hz
+    uint16_t divider = configGetPacketRateDivider(gConfiguration.packetRateDivider);
+    if (divider != 0 && divider < 2) {
+        divider = 2;
+    }
+    divider = divider / 2;
+#else
     uint16_t divider = 1;
-    //uint16_t divider = configGetPacketRateDivider(gConfiguration.packetRateDivider); 
+#endif
 
     if (divider != 0) { ///< check for quiet mode
         if (divideCount == 1) {
-            gConfiguration.packetCode = 0x7331; //s1
+            // gConfiguration.packetCode = 0x5331; //s1 7331
             /// get enum for requested continuous packet type
             type[0] = (uint8_t)((gConfiguration.packetCode >> 8) & 0xff);
             type[1] = (uint8_t)(gConfiguration.packetCode & 0xff);
@@ -569,14 +853,83 @@ void SendContinuousPacket(void)
             /// set continuous output packet type based on configuration
             continuousUcbPacket.packetType = UcbPacketBytesToPacketType(type);
             SendUcbPacket(UART_USER, &continuousUcbPacket);
-
+#ifdef DEBUG_ALL
+            fill_imu_data();
+#endif
             divideCount = divider;
         } else {
             --divideCount;
         }
     }
-
     // send 'pS' packet and 'sK' packet, will display in the web GUI through python driver
     // need to fill the data in 'Fill_posPacketPayload' and 'Fill_skyviewPacketPayload'
     send_gnss_data();
-} 
+
+#ifndef RAW_APP
+    if(nema_update_flag)
+    {
+#ifdef INS_APP
+
+#ifdef USER_INS_NMEA
+        if (strlen(ggaBuff) == 0) {
+            uart_write_bytes(UART_USER, (char *)gga_buff, strlen(gga_buff), 1);
+            uart_write_bytes(UART_USER, (char *)rmc_buff, strlen(rmc_buff), 1);
+        }
+#else
+        if (strlen(ggaBuff) == 0) {
+            uart_write_bytes(UART_USER, (char *)gga_buff, strlen(gga_buff), 1);
+        } else {
+            uart_write_bytes(UART_USER, (char *)ggaBuff, strlen(ggaBuff), 1);
+        }
+        uart_write_bytes(UART_USER, (char *)rmc_buff, strlen(rmc_buff), 1);
+#endif
+
+#else
+        uart_write_bytes(UART_USER, (char *)gga_buff, strlen(gga_buff), 1);
+        uart_write_bytes(UART_USER, (char *)rmc_buff, strlen(rmc_buff), 1);
+#endif
+
+        uart_write_bytes(UART_USER, (char *)gsa_buff, strlen(gsa_buff), 1);    
+        uart_write_bytes(UART_USER, (char *)zda_buff, strlen(zda_buff), 1); 
+        nema_update_flag = 0;
+    }
+#else
+   if(nema_update_flag)
+    {
+        double ecef[3];
+        ecef[0] = g_gnss_sol.pos_ecef[0];
+        ecef[1] = g_gnss_sol.pos_ecef[1];
+        ecef[2] = g_gnss_sol.pos_ecef[2];
+        
+        gtime_t time = gpst2time(g_gnss_sol.gps_week, g_gnss_sol.gps_tow*0.001);
+        print_rmc(time, ecef,1, rmc_buff);   
+        print_gsv((unsigned char *)gsv_buff,1,sky_view_ptr);
+
+        uart_write_bytes(UART_USER, (char *)gga_buff, strlen(gga_buff), 1);
+        uart_write_bytes(UART_USER, (char *)rmc_buff, strlen(rmc_buff), 1);
+        uart_write_bytes(UART_USER, (char *)gsv_buff, strlen(gsv_buff), 1);    
+        nema_update_flag = 0;
+    }
+#endif
+
+#endif
+}
+
+void debug_com_process(void)
+{
+    if (uart_sem_wait(UART_DEBUG, 0) == RTK_SEM_OK){
+        debug_com_rx_data_handle();
+    }
+#ifdef INS_APP
+    if (debug_com_log_on)
+    {
+        if (!debug_p1_log_delay){
+#ifndef DEBUG_ALL
+            sendP1Packet(g_ptr_gnss_sol->gnss_update);
+#endif
+        } else{
+            debug_p1_log_delay--;
+        }
+    }
+#endif
+}

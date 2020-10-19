@@ -98,4 +98,13 @@ void platformSetMode(BOOL isBoot)
     bootMode = isBoot;
 }
 
+void platformGetVersionBytes(uint8_t *bytes)
+{
+    bytes[0] = (uint8_t)VERSION_MAJOR_NUM;
+    bytes[1] = (uint8_t)VERSION_MINOR_NUM;
+    bytes[2] = (uint8_t)VERSION_PATCH_NUM;
+    bytes[3] = (uint8_t)VERSION_STAGE_NUM;
+    bytes[4] = (uint8_t)VERSION_BUILD_NUM;
+}
+
 /*end void initConfigureUnit(void) */

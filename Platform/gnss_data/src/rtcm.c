@@ -10,6 +10,9 @@
 
 #include "rtcm.h"
 #include "gnss_data_api.h"
+#include "nav_math.h"
+#include "uart.h"
+#include "tcp_driver.h"
 
 #define SC2RAD 3.1415926535898 /* semi-circle to radian (IS-GPS) */
 #define AU 149597870691.0      /* 1 AU (m) */
@@ -636,6 +639,15 @@ static double getbitg(const unsigned char *buff, int pos, int len)
 static double rtcm_getbits_38(const unsigned char *buff, int pos)
 {
     return (double)rtcm_getbits(buff, pos, 32) * 64.0 + rtcm_getbitu(buff, pos + 32, 6);
+}
+/* set signed 38bit field ----------------------------------------------------*/
+void rtcm_setbits_38(unsigned char *buff, int pos, double data)
+{
+    int word_h = (int)floor(data / 64.0);
+    unsigned int word_l = (unsigned int)(data - word_h * 64.0);
+    
+    setbits(buff, pos, 32, word_h);
+    setbitu(buff, pos + 32, 6, word_l);
 }
 
 /* get observation data index ------------------------------------------------*/
@@ -1456,6 +1468,73 @@ static void decode_type999_subtype4(rtcm_t *rtcm, obs_t *obs)
     rtcm->st_pvt.flag_gnss_update = 1;
 }
 
+void decode_type999_subtype21(rtcm_t *rtcm, obs_t *obs)
+{
+    int i = 44;
+    rtcm->st_epvt.reference_station_id = rtcm_getbitu(rtcm->buff, i, 12);
+    i += 12;
+    rtcm->st_epvt.reserved_itrf = rtcm_getbitu(rtcm->buff, i, 6);
+    i += 6;
+    rtcm->st_epvt.GPS_quality_indicator = rtcm_getbitu(rtcm->buff, i, 4);
+    i += 4;
+    rtcm->st_epvt.number_satellites_use = rtcm_getbitu(rtcm->buff, i, 8);
+    i += 8;
+    rtcm->st_epvt.number_satellites_view = rtcm_getbitu(rtcm->buff, i, 8);
+    i += 8;
+    rtcm->st_epvt.hdop = (float)rtcm_getbitu(rtcm->buff, i, 8) * 0.1;
+    i += 8;
+    rtcm->st_epvt.vdop = (float)rtcm_getbitu(rtcm->buff, i, 8) * 0.1;
+    i += 8;
+    rtcm->st_epvt.pdop = (float)rtcm_getbitu(rtcm->buff, i, 8) * 0.1;
+    i += 8;
+    rtcm->st_epvt.geoidal_separation = (float)rtcm_getbitu(rtcm->buff, i, 15) * 0.01;
+    i += 15;
+    rtcm->st_epvt.age_differentials = rtcm_getbitu(rtcm->buff, i, 24);
+    i += 24;
+    rtcm->st_epvt.differential_reference_station_id = rtcm_getbitu(rtcm->buff, i, 12);
+    i += 12;
+    rtcm->st_epvt.gnss_id = rtcm_getbitu(rtcm->buff, i, 4);
+    i += 4;
+    rtcm->st_epvt.gnss_epoch_time = rtcm_getbitu(rtcm->buff, i, 30);
+    i += 30;
+    rtcm->st_epvt.extended_week_number = rtcm_getbitu(rtcm->buff, i, 16);
+    i += 16;
+    rtcm->st_epvt.leap_seconds = rtcm_getbitu(rtcm->buff, i, 8);
+    i += 8;
+    rtcm->st_epvt.latitude = (double)rtcm_getbits(rtcm->buff, i, 32) * 0.001 / 3600;
+    i += 32;
+    rtcm->st_epvt.longitude = (double)rtcm_getbits(rtcm->buff, i, 32) * 0.001 / 3600;
+    i += 32;
+    rtcm->st_epvt. height= (double)rtcm_getbits(rtcm->buff, i, 16) * 0.1;
+    i += 16;
+    rtcm->st_epvt.velocity_horizontal = (double)rtcm_getbitu(rtcm->buff, i, 16) * 0.1;
+    i += 16;
+    rtcm->st_epvt.velocity_vertical = (double)rtcm_getbits(rtcm->buff, i, 16) * 0.1;
+    i += 16;
+    rtcm->st_epvt.course_angle = rtcm_getbitu(rtcm->buff, i, 16);
+    i += 16;
+    rtcm->st_epvt.protection_level_horizontal = (double)rtcm_getbits(rtcm->buff, i, 16) * 0.1;
+    i += 16;   
+    rtcm->st_epvt.protection_level_vertical = (double)rtcm_getbits(rtcm->buff, i, 16) * 0.1;
+    i += 16; 
+    rtcm->st_epvt.protection_level_angle = (double)rtcm_getbits(rtcm->buff, i, 16) * 0.1;
+    i += 16;
+    rtcm->st_epvt.receiver_clock_bias = rtcm_getbits(rtcm->buff, i, 32);
+    i += 32;    
+    rtcm->st_epvt.receiver_clock_drift = rtcm_getbits(rtcm->buff, i, 32);
+    i += 32;  
+
+
+	double r[3];
+	r[0] =  rtcm->st_epvt.latitude * D2R;
+	r[1] =  rtcm->st_epvt.longitude * D2R;
+	r[2] =  rtcm->st_epvt.height;
+	pos2ecef(r,obs->pos);
+
+    rtcm->st_epvt.flag_gnss_update = 1;
+
+}
+
 static int decode_type999(rtcm_t *rtcm, obs_t *obs)
 {
 
@@ -1468,6 +1547,10 @@ static int decode_type999(rtcm_t *rtcm, obs_t *obs)
     {
         decode_type999_subtype4(rtcm, obs);
     }
+    else  if (rtcm->st_pvt.sub_type_id == 21)
+    {
+        decode_type999_subtype21(rtcm, obs);
+    }  
     return 0;
 }
 
@@ -1725,10 +1808,10 @@ static int decode_type1006(rtcm_t *rtcm, obs_t *obs)
     if (!test_staid(obs, staid))
         return -1;
 
-    // for (j = 0; j < 3; j++)
-    // {
-    //     obs->pos[j] = rr[j] * 0.0001;
-    // }
+    for (j = 0; j < 3; j++)
+    {
+        obs->pos[j] = rr[j] * 0.0001;
+    }
 
     return 5;
 }
@@ -4824,6 +4907,37 @@ int decode_rtcm3(rtcm_t *rtcm, obs_t *obs, nav_t *nav)
 *            
 *-----------------------------------------------------------------------------*/
 
+extern uint8_t stnID;
+extern uint8_t debug_com_log_on;
+extern client_s driver_data_client;
+void fill_base_data(rtcm_t *rtcm,int rtcm_len)
+{
+    uint8_t base_data_buf[2000] = {0};
+    double gga_time = get_gnss_time();
+    //  sizeof(",%02x\r\n") 5 sizeof(',') 1
+    uint32_t data_len = rtcm_len + 5*sizeof(char) + 1*sizeof(char); 
+    int head_len = sprintf(( char*)base_data_buf,"$GPREF,%6.2f,%04u,",gga_time,data_len);
+    memcpy(base_data_buf + strlen(( char*)base_data_buf),rtcm->buff,rtcm_len);
+    int all_bytes_to_sum = head_len + rtcm_len;
+    char sum = 0;
+    for(int i = 0;i < all_bytes_to_sum;i++)
+    {
+        sum ^= base_data_buf[i];
+    }
+    int end_len = sprintf((char*)base_data_buf + head_len + rtcm_len,",%02x\r\n",sum);
+    if (debug_com_log_on) {
+       uart_write_bytes(UART_DEBUG,( char*)base_data_buf,head_len + rtcm_len + end_len,1);
+    }
+    if(get_tcp_data_driver_state() == CLIENT_STATE_INTERACTIVE)
+    {
+        //driver_data_push((char*)base_data_buf,head_len + rtcm_len + end_len);
+        client_write_data(&driver_data_client,(char*)base_data_buf,head_len + rtcm_len + end_len,0x01);
+    }
+}
+
+uint8_t rtcm_decode_completion = 0;
+uint32_t rtcm_decode_length = 0;
+
 extern int input_rtcm3_data(rtcm_t *rtcm, unsigned char data, obs_t *obs, nav_t *nav)
 {
     /* synchronize frame */
@@ -4851,6 +4965,13 @@ extern int input_rtcm3_data(rtcm_t *rtcm, unsigned char data, obs_t *obs, nav_t 
     }
     if (rtcm->nbyte < 3 || rtcm->nbyte < rtcm->len + 3)
         return 0;
+#ifdef DEBUG_ALL
+    if((rtcm->nbyte > 0) && (stnID == BASE))
+    {
+        fill_base_data(rtcm,rtcm->nbyte);
+    }
+#endif
+    rtcm_decode_length = rtcm->nbyte;
     rtcm->nbyte = 0;
     rtcm->type = rtcm_getbitu(rtcm->buff, 24, 12);
 
@@ -4860,6 +4981,10 @@ extern int input_rtcm3_data(rtcm_t *rtcm, unsigned char data, obs_t *obs, nav_t 
         trace(2, "rtcm3 parity error: len=%d\n", rtcm->len);
         return 0;
     }
+
+    rtcm_decode_completion = 1;
+
+    // printf("rtcm type: %d\r\n", rtcm->type);
 
     /* decode rtcm3 message */
     return decode_rtcm3(rtcm, obs, nav);

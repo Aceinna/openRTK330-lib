@@ -44,7 +44,8 @@ ucb_packet_t ucbPackets[] = {		//
     {UCB_UNLOCK_EEPROM,      0x5545},   //  "UE" 
     {UCB_READ_EEPROM,        0x5245},   //  "RE" 
     {UCB_WRITE_EEPROM,       0x5745},   //  "WE" 
-    {UCB_SOFTWARE_RESET,     0x5352},   //  "SR" 
+    {UCB_SOFTWARE_RESET,     0x5352},   //  "SR"
+    {UCB_WRITE_APP,          0x5741},   //  "WA"
     {UCB_WRITE_CAL,          0x5743},   //  "WC" 
     {UCB_IDENTIFICATION,     0x4944},   //  "ID" 
     {UCB_VERSION_DATA,       0x5652},   //  "VR" 
@@ -108,7 +109,7 @@ UcbPacketType UcbPacketBytesToPacketType (const uint8_t bytes [])
  * @param [in] byte array, containing one byte
  * @Retval length
  ******************************************************************************/
-void UcbPacketPacketTypeToBytes (UcbPacketType type,
+BOOL UcbPacketPacketTypeToBytes (UcbPacketType type,
                                  uint8_t       bytes [])
 {
     ucb_packet_t *ptr = ucbPackets;
@@ -117,7 +118,7 @@ void UcbPacketPacketTypeToBytes (UcbPacketType type,
 #ifndef USER_PACKETS_NOT_SUPPORTED
     if(type == UCB_USER_OUT){
         userPacketTypeToBytes(bytes);
-        return;
+        return TRUE;
     }
 #endif
     
@@ -125,13 +126,15 @@ void UcbPacketPacketTypeToBytes (UcbPacketType type,
         if(ptr->packetType == type){
             bytes[0] = (uint8_t)((ptr->packetCode >> 8) & 0xff);
             bytes[1] = (uint8_t)(ptr->packetCode & 0xff);
-            return;
+            return TRUE;
         }
         ptr++;
     }
     
-		bytes[0] = 0;
-		bytes[1] = 0;
+	bytes[0] = 0;
+	bytes[1] = 0;
+
+    return FALSE;
 }
 /* end UcbPacketPacketTypeToBytes */
 
@@ -162,6 +165,7 @@ BOOL UcbPacketIsAnInputPacket (UcbPacketType type)
         case UCB_READ_EEPROM:
         case UCB_WRITE_EEPROM:
         case UCB_SOFTWARE_RESET:
+        case UCB_WRITE_APP:
         case UCB_WRITE_CAL:
             isAnInputPacket = TRUE;
             break;

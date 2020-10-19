@@ -34,7 +34,7 @@ limitations under the License.
 #define SPI_NSS_PIN_OFFSET 0x05
 #define SPI_NSS_MASK       (SPI_CHIPS_DEFAULT <<  SPI_NSS_PIN_OFFSET)            //0x000000E0
 
-
+extern ADC_HandleTypeDef hadc1;
 // need to modify
 void MX_DMA_Init(void);
 #if 0
@@ -92,7 +92,8 @@ void    DelayMs(uint32_t msec);
 void BSP_Spi_Pins_For_Test(void);
 void DRDY_Toggle(void);
 void NSS_Toggle(void);
-
+void DRDY_ON(void);
+void DRDY_OFF(void);
 
 #define SPI_MOSI_ON         (HAL_GPIO_WritePin(SPI_MOSI_PORT, SPI_MOSI_PIN, GPIO_PIN_SET))
 #define SPI_MOSI_OFF        (HAL_GPIO_WritePin(SPI_MOSI_PORT, SPI_MOSI_PIN, GPIO_PIN_RESET))
@@ -105,9 +106,8 @@ void NSS_Toggle(void);
 
 #define SPI(x,y) ((y) ? (x ##_ON): (x ##_OFF))
 
-void HW_JumpToApp(void);
 void esp32_reset();
 
-
+void pluse_detect_init(void);
 #endif /* CONF_GPIO_H */
 

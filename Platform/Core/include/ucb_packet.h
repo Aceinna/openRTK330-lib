@@ -76,6 +76,7 @@ typedef enum
     UCB_SOFTWARE_RESET,     // 11 SR 0x5352
     UCB_WRITE_CAL,          // 12 WC 0x5743
     UCB_READ_CAL,           // 13 RC 0x5243
+    UCB_WRITE_APP,          // 14 WA 0x5743
     UCB_J2BOOT,             // 15 JB 0x4A42
     UCB_J2IAP,              // 16 JI 0x4A49
     UCB_J2APP,              // 17 JA 0x4A41
@@ -103,7 +104,7 @@ typedef enum
 #define UCB_VERSION_ALL_DATA_LENGTH 15
 #define UCB_SCALED_0_LENGTH 30
 #define UCB_SCALED_1_LENGTH 24
-#define UCB_SCALED_M_LENGTH 60
+#define UCB_SCALED_M_LENGTH 62
 #define UCB_TEST_0_LENGTH 28
 #define UCB_FACTORY_1_LENGTH 54
 #define UCB_FACTORY_2_LENGTH 66
@@ -112,7 +113,7 @@ typedef enum
 
 /// UCB packet-specific utility functions ucb_packet.c
 extern UcbPacketType     UcbPacketBytesToPacketType    (const uint8_t bytes []);
-extern void              UcbPacketPacketTypeToBytes    (UcbPacketType type, uint8_t bytes []);
+extern BOOL              UcbPacketPacketTypeToBytes    (UcbPacketType type, uint8_t bytes []);
 extern BOOL UcbPacketIsAnInputPacket(UcbPacketType type);
 extern BOOL UcbPacketIsAnOutputPacket(UcbPacketType type);
 

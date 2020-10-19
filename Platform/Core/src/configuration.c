@@ -40,6 +40,7 @@ BOOL     ValidPortConfiguration(ConfigurationStruct *proposedConfiguration);
 uint16_t configGetUsedChips(void)                     { return gConfiguration.usedChips;}
 uint16_t configGetActiveChips(void)                   { return gConfiguration.activeChips;}
 uint16_t configGetUsedSensors(int chipIdx)            { return gConfiguration.usedSensors[chipIdx];}
+void     configSetUsedChips(uint8_t mask)             { gConfiguration.usedChips = mask;}
 
 // placholders for Nav_view compatibility
 softwareVersionStruct dupFMversion;  /// 525 digital processor DUP code base
@@ -98,7 +99,7 @@ int32_t baudEnumToBaudRate(int baudEnum)
  ******************************************************************************/
 static void _readConfigIntoMem ()
 {
-    readEEPROMConfiguration(&gConfiguration); // s_eeprom.c
+    EEPROM_ReadFactoryConfiguration(&gConfiguration); // s_eeprom.c
 }
 
 /** ****************************************************************************
@@ -133,9 +134,6 @@ void ApplyFactoryConfiguration(void)
 
     _readConfigIntoMem();
 
-
-    gBitStatus.swDataBIT.bit.calibrationCRCError = FALSE;
-    
     /// check user orientation field for validity and set defaults based on com
     //  type if not valid xbow_fields.c
     // if (CheckOrientation(gConfiguration.orientation.all) == FALSE) {
@@ -149,7 +147,6 @@ void ApplyFactoryConfiguration(void)
     /// check port configuration fields against rules
 	// xbow_fields.c
     if (ValidPortConfiguration(&gConfiguration) == FALSE) {
-        memset(&gConfiguration, 0, sizeof(ConfigurationStruct));
         DefaultPortConfiguration();
     }
 
@@ -173,6 +170,11 @@ void ApplyFactoryConfiguration(void)
         gConfiguration.activeChips = 7;
     }
 
+    for (uint16_t i = 0; i < 3; i++) {
+        if (gConfiguration.usedSensors[i] == 0) {
+            gConfiguration.usedSensors[i] = 0xffff;
+        }
+    }
 }
 
 

@@ -1,0 +1,13 @@
+{
+	"name": "INS",
+ 	"version": "0.0.1",
+ 	"description": "GNSS/INS library",
+ 	"build": {
+ 		"flags": [
+			"-I include",
+			"-I ."
+ 		],
+		"libArchive": true,
+		"platforms": "aceinna_imu"
+ 	}
+ }

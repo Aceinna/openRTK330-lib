@@ -24,6 +24,9 @@
 #include "led.h"
 #include "rtcm.h"
 #include "exit.h"
+#include "rng.h"
+
+ADC_HandleTypeDef hadc1;
 
 UART_HandleTypeDef huart_debug;
 UART_HandleTypeDef huart_user;
@@ -144,9 +147,65 @@ void MX_DMA_Init(void)
 
   HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
+
+   //spi5 dma 
+  /* DMA2_Stream3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream3_IRQn, 2, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream3_IRQn);
+  /* DMA2_Stream4_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream4_IRQn, 3, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream4_IRQn);   
 }
 
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
 
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+  /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion) 
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.ScanConvMode = DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+  */
+  sConfig.Channel = ADC_CHANNEL_TEMPSENSOR;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
+}
 
 /** ****************************************************************************
  * @name BSP_DEBUG_GPIOS_Gpio_Init
@@ -427,7 +486,7 @@ void BSP_GPIO_Init(void)
     BSP_ESP32_Interface_Gpio_Init();
     BSP_SENSOR_Interface_Gpio_Init();
     BSP_Spi_Pins_For_Test();
-
+    MX_ADC1_Init();
 }
 
 
@@ -450,6 +509,9 @@ void BoardInit(void)
 
     /* Init gpio pins */
     BSP_GPIO_Init();
+
+    /* RNG */
+    RNG_Init();
 }
 
 
@@ -618,7 +680,7 @@ void ResetForEnterBootMode(void)
 
     ResetSTIForNormalMode();
 
-    HAL_GPIO_WritePin(GPIOC,ST_PROG_BUF_CTL_PIN,GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOC,ST_PROG_BUF_CTL_PIN,GPIO_PIN_RESET);
 }
 
 
@@ -654,12 +716,6 @@ void HW_BootJump(uint32_t addr)
     asm("LDR SP, [R0]");
     asm("LDR PC, [R0, #4]");
 }
-
-void HW_JumpToApp(void)
-{
-    HW_BootJump(APP_START_ADDR);
-}
-
 
 void delay_ms(uint32_t time)
 {    
@@ -769,4 +825,25 @@ void SCK_ON(void)
 void SCK_OFF(void)
 {
     HAL_GPIO_WritePin(USER_SPI_SCK_PORT, USER_SPI_SCK_PIN, GPIO_PIN_RESET);
+}
+
+
+void pluse_detect_init(void)
+{
+    PLUSE_GPIO_CLK_ENABLE();
+    GPIO_InitTypeDef GPIO_InitStruct;
+    GPIO_InitStruct.Pin = PLUSE_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(PLUSE_PORT, &GPIO_InitStruct);
+
+    FWD_GPIO_CLK_ENABLE();
+    GPIO_InitStruct.Pin = FWD_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_PULLUP; //GPIO_PULLUP
+    HAL_GPIO_Init(FWD_PORT, &GPIO_InitStruct);
+
+    /* EXTI interrupt init*/
+    HAL_NVIC_SetPriority(PLUSE_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(PLUSE_IRQn);
 }

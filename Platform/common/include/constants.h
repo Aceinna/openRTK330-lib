@@ -55,7 +55,7 @@ typedef unsigned char BOOL;
 #define RE_WGS84    6378137.0               /* earth semimajor axis (WGS84) (m) */
 #define FE_WGS84    (1.0/298.257223563)     /* earth flattening (WGS84) */
 
-#define SIGMA        1.0e-8
+// #define SIGMA        1.0e-8
 #define KNOT2MPSEC   5.144444444e-1
 #define SQUARE(x) ((x)*(x))
 

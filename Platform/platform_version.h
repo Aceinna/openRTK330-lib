@@ -30,15 +30,13 @@
 //                                    1         2
 //                           12345678901234567890
 
-#ifdef   IMU383
-    #define  SOFTWARE_PART      "5020-1398-01 0.0.20"   // IMU383  
-#else
-    #define  SOFTWARE_PART      "8350-3021-01 0.1.1"    // openrtk330
-#endif
+
+#define  SOFTWARE_PART      "5020-3021-01 2.0.0"    // openrtk330
+
 
 #ifdef   BOOT_MODE
-    #define  BOOT_SOFTWARE_PART "0.0.1"                 // Bootloader version  
-    #define  VERSION_STRING     "IMU383_Bootloader"   // Bootloader version  
+    #define  BOOT_SOFTWARE_PART "1.1.1"                 // Bootloader version  
+    #define  VERSION_STRING     "OpenRTK330L_Bootloader"   // Bootloader version  
 #endif
 
 

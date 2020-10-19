@@ -129,7 +129,7 @@ void http_set_js_handlers(const tJS *pJSs, int iNumHandlers);
 
 /* The maximum number of parameters that the CGI handler can be sent. */
 #ifndef LWIP_HTTPD_MAX_CGI_PARAMETERS
-#define LWIP_HTTPD_MAX_CGI_PARAMETERS 16
+#define LWIP_HTTPD_MAX_CGI_PARAMETERS 20
 #endif
 
 #endif /* LWIP_HTTPD_CGI */

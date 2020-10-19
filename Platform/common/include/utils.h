@@ -26,8 +26,8 @@ limitations under the License.
 #include "gnss_data_api.h"
 
 #define GPS_BUFF_SIZE (2000)
-#define IMU_BUFF_SIZE (512)
-#define DEBUG_BUFF_SIZE (128)
+#define IMU_BUFF_SIZE (2000)
+#define DEBUG_BUFF_SIZE (2000)
 
 
 typedef struct

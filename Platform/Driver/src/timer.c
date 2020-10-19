@@ -21,6 +21,7 @@
 #include "stm32f4xx_hal.h"
 #include "main.h"
 #include "user_config.h"
+#include "app_version.h"
 
 #define SENSOR_TIMER_IRQ                       TIM2_IRQHandler
 
@@ -127,13 +128,19 @@ static void timer_isr_if(TIM_HandleTypeDef* timer)
                 g_MCU_time.msec = 0;
                 g_MCU_time.time ++;
             }
-            switch (gUserConfiguration.userPacketRate)
+#ifdef INS_APP
+            if(g_MCU_time.msec % 10 == 0) // 100Hz
+            {
+                release_sem(g_sem_imu_data_acq);
+            } 
+#else
+            switch (get_user_packet_rate())
             {
             case 200:
                 if(g_MCU_time.msec % 5 == 0) // 200Hz
                 {
                     release_sem(g_sem_imu_data_acq);
-                } 
+                }
                 break;
             case 100:
                 if(g_MCU_time.msec % 10 == 0) // 100Hz
@@ -148,6 +155,12 @@ static void timer_isr_if(TIM_HandleTypeDef* timer)
                 } 
                 break;             
             }
+#endif
+            if (gOdoConfigurationStruct.can_mode == 1) {
+                if(g_MCU_time.msec % 10 == 0) { // 100Hz
+                    release_sem(g_sem_can_data);
+                }
+            }
         }
 
     }
@@ -160,3 +173,27 @@ void SENSOR_TIMER_IRQ(void)
     timer_isr_if(&htim_sensor);
     OSExitISR();
 }
+
+double get_gnss_time()
+{
+    gtime_t time;
+    int week;
+    double ep[6];
+    time.time = g_MCU_time.time;
+    time.sec = (double)g_MCU_time.msec/1000;
+    double timeOfWeek = 0;
+    timeOfWeek = time2gpst(time,&week); 
+    if (timeOfWeek < 0){
+        week = 0;
+        timeOfWeek = g_MCU_time.time + (double)g_MCU_time.msec/1000;
+    } 
+
+    gtime_t gpstime = gpst2time(week, timeOfWeek);
+    gtime_t utctime = gpst2utc(gpstime);
+    time2epoch(utctime, ep);
+    double gga_time = ep[3] * 10000 + ep[4] * 100 + ep[5] + 0.001;
+    return gga_time;
+}
+
+
+

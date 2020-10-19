@@ -18,7 +18,6 @@
 #include "ucb_packet.h"
 #include <stdint.h>
  
-extern BOOL   	CheckPortUsage 			  (ConfigurationStruct *proposedConfiguration) ;
 extern BOOL   	CheckPortBaudRate 		  (uint16_t portBaudRate) ;
 extern BOOL   	CheckPacketRateDivider	  (uint16_t packetRateDivider) ;
 extern BOOL		  CheckContPacketRate       (UcbPacketType outputPacket, uint16_t baudRate, uint16_t packetRateDivider) ;
@@ -69,16 +68,10 @@ extern void		  SetFieldData			  (void) ;
 
 extern BOOL CheckOrientation (uint16_t orientation) ;
 extern void DefaultPortConfiguration (void);
-extern BOOL CheckBaroCorrection(int32_t baroCorrection) ;
 extern BOOL WriteFieldData (void);
 
-extern uint16_t appendAttitudeTrue (uint8_t *response, uint16_t index);
-extern uint16_t appendCorrectedRates (uint8_t *response, uint16_t index) ;
 extern uint16_t appendAccels (uint8_t *response, uint16_t index);
 extern uint16_t appendChipAccels (uint8_t *response, uint16_t index, int chipId);
-extern uint16_t appendCorrectedAccels (uint8_t *response, uint16_t index);
-extern uint16_t appendTangentRates (uint8_t *response, uint16_t index);
-extern uint16_t appendTangentAccels (uint8_t *response, uint16_t index);
 extern uint16_t appendRates (uint8_t *response, uint16_t index);
 extern uint16_t appendChipRates (uint8_t *response, uint16_t index, int chipId);
 extern uint16_t appendMagReadings (uint8_t *response, uint16_t index);
@@ -88,10 +81,6 @@ extern uint16_t appendInertialCounts (uint8_t *response, uint16_t index);
 extern uint16_t appendMagnetometerCounts (uint8_t *response, uint16_t index);
 extern uint16_t appendAllTempCounts (uint8_t *response, uint16_t index);
 extern uint16_t appendRateTemp (uint8_t  *response, uint16_t index);
-extern uint16_t appendGpsVel (uint8_t  *response, uint16_t index);
-extern uint16_t appendGpsPos (uint8_t  *response, uint16_t index);
-uint16_t        appendKalmanVel (uint8_t  *response, uint16_t index);
-uint16_t        appendKalmanPos (uint8_t  *response, uint16_t index);
 uint16_t        appendTemp (uint8_t  *response, uint16_t index);
 
 

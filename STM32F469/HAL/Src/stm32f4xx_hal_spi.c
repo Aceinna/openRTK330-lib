@@ -167,7 +167,7 @@
 /** @defgroup SPI_Private_Constants SPI Private Constants
   * @{
   */
-#define SPI_DEFAULT_TIMEOUT 100U
+#define SPI_DEFAULT_TIMEOUT 0U
 /**
   * @}
   */

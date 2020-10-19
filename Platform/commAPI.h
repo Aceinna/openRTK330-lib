@@ -29,5 +29,8 @@ limitations under the License.
 
 extern void ProcessUserCommands(void);
 extern void SendContinuousPacket(void);
-
+extern void debug_com_process(void);
+extern void send_ins_nmea(void);
+extern void send_ins_to_bt(void);
+extern void handle_tcp_commands(void);
 #endif

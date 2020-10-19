@@ -33,6 +33,8 @@ limitations under the License.
 #include "platformAPI.h"
 #include "configuration.h"
 #include "user_message.h"
+#include "main.h"
+#include "tcp_driver.h"
 
 typedef struct{
     int      type;
@@ -54,6 +56,7 @@ ucbInputSyncTableEntry_t ucbInputSyncTable[] = {
     {UCB_SOFTWARE_RESET,    0x5352},    //  "SR"
     {UCB_WRITE_CAL,         0x5743},    //  "WC"
     {UCB_READ_CAL,          0x5243},    //  "RC"
+    {UCB_WRITE_APP,         0x5741},    //  "WA"
     {UCB_J2BOOT,            0x4A42},    //  "JB"
     {UCB_J2IAP,             0x4A49},    //  "JI"
     {UCB_J2APP,             0x4A41},    //  "JA"
@@ -80,6 +83,8 @@ uint8_t dataBuffer[512];
  * @retval TRUE if a full packet has been seen (can fail CRC)
  *         FALSE if needing more to fill in a packet
  ******************************************************************************/
+extern client_s driver_client;
+
 BOOL HandleUcbRx (UcbPacketStruct  *ucbPacket)
 {
     static int bytesInBuffer = 0, state = 0, crcError = 0, len = 0;
@@ -94,7 +99,15 @@ BOOL HandleUcbRx (UcbPacketStruct  *ucbPacket)
     
 	while(1){
         if(!bytesInBuffer){
-            bytesInBuffer = uart_read_bytes(UART_USER,dataBuffer, sizeof(dataBuffer),0);
+            if(get_tcp_driver_state() == CLIENT_STATE_INTERACTIVE)
+            {
+                client_read_data(&driver_client, dataBuffer, &bytesInBuffer);
+            }
+            if(bytesInBuffer == 0)
+            {
+                bytesInBuffer = uart_read_bytes(UART_USER,dataBuffer, sizeof(dataBuffer),0);
+                fifo_push(&fifo_user_uart,dataBuffer,bytesInBuffer);
+            }
             if(!bytesInBuffer){
                 return 0; // nothing to do
             }
@@ -201,20 +214,32 @@ void HandleUcbTx (int port, UcbPacketStruct *ptrUcbPacket)
 {
 	uint16_t crc;
 	uint8_t data[2];
+    bool ret;
 
 	/// get byte representation of packet type, index adjust required since sync
     /// isn't placed in data array
-	UcbPacketPacketTypeToBytes(ptrUcbPacket->packetType, data);
-
-	ptrUcbPacket->sync_MSB = 0x55;
+    ptrUcbPacket->sync_MSB = 0x55;
 	ptrUcbPacket->sync_LSB = 0x55;
-	ptrUcbPacket->code_MSB = data[0];
-	ptrUcbPacket->code_LSB = data[1];
+
+	ret = UcbPacketPacketTypeToBytes(ptrUcbPacket->packetType, data);
+    if (ret) {
+        ptrUcbPacket->code_MSB = data[0];
+	    ptrUcbPacket->code_LSB = data[1];
+    } else {
+        ptrUcbPacket->payloadLength = 2;
+        ptrUcbPacket->payload[0]    =  ptrUcbPacket->code_MSB;
+        ptrUcbPacket->payload[1]    =  ptrUcbPacket->code_LSB;
+        ptrUcbPacket->code_MSB = 0x15; // NAK
+        ptrUcbPacket->code_LSB = 0x15;
+    }
 
     crc = CalculateCRC((uint8_t *)&ptrUcbPacket->code_MSB, ptrUcbPacket->payloadLength + 3);
     ptrUcbPacket->payload[ptrUcbPacket->payloadLength+1]   = (crc >> 8) & 0xff;
     ptrUcbPacket->payload[ptrUcbPacket->payloadLength]     =  crc  & 0xff;
-
+    if(get_tcp_driver_state() == CLIENT_STATE_INTERACTIVE)
+    {
+        client_write_data(&driver_client,(const char *)&ptrUcbPacket->sync_MSB, ptrUcbPacket->payloadLength + 7,  0x01);
+    }
     uart_write_bytes(port, (const char *)&ptrUcbPacket->sync_MSB, ptrUcbPacket->payloadLength + 7,1);
 }
 /* end HandleUcbTx */

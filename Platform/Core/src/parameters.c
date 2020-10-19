@@ -22,24 +22,13 @@
 #include "eepromAPI.h"
 #include "constants.h"
 #include "Indices.h"
-#ifndef SENSOR_UNUSED
-    // #include "sensors_data.h"
-    #include "sensorsAPI.h"
-#endif
-#ifdef SENSOR_UNUSED
-    #include "bare_osapi.h"
-#endif
+#include "sensorsAPI.h"
 #include "stm32f4xx_hal.h"
-#ifdef USE_ALGORITHM
-#include "EKF_Algorithm.h"
-#endif
 
-UART_HandleTypeDef huart5;
 /// proposed configurations
 static ConfigurationStruct proposedRamConfiguration;
 static ConfigurationStruct proposedEepromConfiguration;
 ConfigurationStruct *proposedEepromConfigurationPtr = &proposedEepromConfiguration;
-float GetUnitTemp();
 
 static BOOL portConfigurationChanged; // port settings are to be changed
 
@@ -133,18 +122,6 @@ BOOL CheckContPacketRate (UcbPacketType outputPacket,
             case UCB_IDENTIFICATION:
                 bytesPerPacket += UCB_IDENTIFICATION_LENGTH;
                 break;
-            case UCB_TEST_0:
-                bytesPerPacket += UCB_TEST_0_LENGTH;
-                break;
-            case UCB_FACTORY_1:
-                bytesPerPacket += UCB_FACTORY_1_LENGTH;
-                break;
-            case UCB_FACTORY_2:
-                bytesPerPacket += UCB_FACTORY_2_LENGTH;
-                break;
-            case UCB_FACTORY_M:
-                bytesPerPacket += UCB_FACTORY_M_LENGTH;
-                break;
             case UCB_VERSION_DATA:
                 bytesPerPacket += UCB_VERSION_DATA_LENGTH;
                 break;
@@ -160,6 +137,19 @@ BOOL CheckContPacketRate (UcbPacketType outputPacket,
             case UCB_SCALED_M:
                 bytesPerPacket += UCB_SCALED_M_LENGTH;
                 break;
+            case UCB_TEST_0:
+                bytesPerPacket += UCB_TEST_0_LENGTH;
+                break;
+            case UCB_FACTORY_1:
+                bytesPerPacket += UCB_FACTORY_1_LENGTH;
+                break;
+            case UCB_FACTORY_2:
+                bytesPerPacket += UCB_FACTORY_2_LENGTH;
+                break;
+            case UCB_FACTORY_M:
+                bytesPerPacket += UCB_FACTORY_M_LENGTH;
+                break;
+            
             default:
                 valid = FALSE;
         }
@@ -483,7 +473,7 @@ uint8_t CheckEepromFieldData (uint8_t  numFields,
                               uint16_t fieldData [],
                               uint16_t validFields [])
 {   /// copy current EEPROM configuration
-    readEEPROMConfiguration(&proposedEepromConfiguration);
+    EEPROM_ReadFactoryConfiguration(&proposedEepromConfiguration);
 
     return CheckFieldData(&proposedEepromConfiguration,
                           numFields,
@@ -521,7 +511,7 @@ BOOL WriteFieldData (void)
     ptr++; ///< get past CRC at top
 
     /// write entire proposed configuration back to EEPROM
-    if (writeEEPROMByte(LOWER_CONFIG_ADDR_BOUND, // 0x1
+    if (EEPROM_WriteByte(LOWER_CONFIG_ADDR_BOUND, // 0x1
                         NUM_CONFIG_FIELDS * // 0x2b - 1 - 2 = 0x28 = 40 byts
                         SIZEOF_WORD, // 2 bytes
                         (void *)ptr) == 0) {
@@ -533,45 +523,6 @@ BOOL WriteFieldData (void)
     return success;
 } /* end WriteFieldData */
 
-
-#ifdef USE_ALGORITHM 
-/** ****************************************************************************
- * @name appendCorrectedRates
- * @brief calculates the algorithm corrected angular rates and formats them for
- *        output.
- * @author Darren Liccardo, Aug. 2005
- * @author Dong An, 2007,2008
- * Trace: [SDD_APPEND_CORRECTED_RATES <-- SRC_APPEND_CORRECTED_RATES]
- * @param [in] response - points to the beginning of the packet array.
- * @param [in] index - response[index] is where data is added.
- * @retval  modified index to next avaliable response buffer location.
- ******************************************************************************/
-
-uint16_t appendCorrectedRates (uint8_t  *response,
-                               uint16_t index)
-{
-    int16_t tmp;
-
-    /// i = 0
-    tmp = (int16_t) SCALE_BY_2POW16_OVER_7PI(gKalmanFilter.correctedRate_B[X_AXIS]);
-    index = uint16ToBuffer(response,
-                           index,
-                           tmp);
-    /// i = 1
-    tmp = (int16_t) SCALE_BY_2POW16_OVER_7PI(gKalmanFilter.correctedRate_B[Y_AXIS]);
-    index = uint16ToBuffer(response,
-                           index,
-                           tmp);
-    /// i = 2
-    tmp = (int16_t) SCALE_BY_2POW16_OVER_7PI(gKalmanFilter.correctedRate_B[Z_AXIS]);
-    index = uint16ToBuffer(response,
-                           index,
-                           tmp);
-    return index;
-}
-#endif // USE_ALGORITHM 
-
-/* end appendCorrectedRates */
 
 /** ****************************************************************************
  * @name appendRates
@@ -590,7 +541,7 @@ uint16_t appendRates (uint8_t  *response,
     int tmp;
     double rates[3];
     
-    GetRateData_radPerSec_AsDouble(rates);
+    GetRateData_degPerSec_AsDouble(rates);
 
     /// X-Axis
     tmp   = rates[0]*32768/630;
@@ -665,40 +616,6 @@ uint16_t appendMagReadings( uint8_t  *response,
 
 /* end appendMagReadings */
 
-/** ****************************************************************************
- * @name appendTangentRates
- * @brief formats the local level frame angular rates for output.
- * Trace: [SDD_APPEND_TANGENT_RATES <-- SRC_APPEND_TANGENT_RATES]
- * @param [in] response - points to the beginning of the packet array.
- * @param [in] index - response[index] is where data is added.
- * @retval  modified index to next avaliable response buffer location.
- ******************************************************************************/
-/*
-uint16_t appendTangentRates (uint8_t  *response,
-                             uint16_t index)
-{
-    int tmp;
-
-    /// X-axis
-    tmp = (int)(SCALE_BY_2POW16_OVER_7PI(gSensorsData.tangentRates[X_AXIS]));
-    index = uint16ToBuffer(response,
-                           index,
-                           tmp);
-    /// Y-axis
-    tmp = (int)(SCALE_BY_2POW16_OVER_7PI(gSensorsData.tangentRates[Y_AXIS]));
-    index = uint16ToBuffer(response,
-                           index,
-                           tmp);
-    /// Z-axis
-    tmp = (int)(SCALE_BY_2POW16_OVER_7PI(gSensorsData.tangentRates[Z_AXIS]));
-    index = uint16ToBuffer(response,
-                           index,
-                           tmp);
-    return index;
-}*/
- /* end appendTangentRates */
-
-
 
 /** ****************************************************************************
  * @name appendAccels
@@ -761,90 +678,6 @@ uint16_t appendChipAccels (uint8_t  *response,
     return index;
 } /* end appendAccels */
 
-
-/** ****************************************************************************
- * @name appendCorrectedAccels
- * @brief calculates the algorithm corrected accelerations and formats them for
- *        output.
- * @author Darren Liccardo, Aug. 2005
- * @author Dong An, 2007,2008
- * Trace: [SDD_APPEND_ACCELS <-- SRC_APPEND_ACCELS]
- * @param [in] response - points to the beginning of the packet array.
- * @param [in] index - response[index] is where data is added.
- * @retval  modified index to next avaliable response buffer location.
- ******************************************************************************/
-/*
-uint16_t appendCorrectedAccels (uint8_t  *response,
-                                uint16_t index)
-{
-    uint16_t tmp;
-
-    /// X-Axis
-    tmp = _qmul( TWO_POW16_OVER_20_q19,
-                 (int32_t)(gKalmanFilter.correctedAccel_B[XACCEL]*13681725.58613659),
-                 19, 27, 16 ) >> 16;
-    index = uint16ToBuffer(response,
-                           index,
-                           tmp);
-    /// Y-Axis
-    tmp = _qmul( TWO_POW16_OVER_20_q19,
-                 (int32_t)(gKalmanFilter.correctedAccel_B[YACCEL]*13681725.58613659),
-                 19, 27, 16 ) >> 16;
-    index = uint16ToBuffer(response,
-                           index,
-                           tmp);
-    /// Z-Axis
-    tmp = _qmul( TWO_POW16_OVER_20_q19,
-                 (int32_t)(gKalmanFilter.correctedAccel_B[ZACCEL]*13681725.58613659),
-                 19, 27, 16 ) >> 16;
-    index = uint16ToBuffer(response,
-                           index,
-                           tmp);
-    return index;
-}*/ 
-/* end appendAccels */
-
-/** ****************************************************************************
- * @name appendTangentAccels
- * @brief calculates Along Heading Acceleration, Cross Heading Acceleration and
- *        Vertical Acceleration for ARINC705, and formats them for output.
- * Trace: [SDD_APPEND_ACCELS <-- SRC_APPEND_ACCELS]
- * @param [in] response - points to the beginning of the packet array.
- * @param [in] index - response[index] is where data is added.
- * @retval  modified index to next avaliable response buffer location.
- ******************************************************************************/
-/*
-uint16_t appendTangentAccels (uint8_t  *response,
-                              uint16_t index)
-{
-    int    tmp;
-    double aHcHvAccel[3];
-
-    aHcHvAccel[X_AXIS] =   gSensorsData.tangentAccels[X_AXIS];
-    aHcHvAccel[Y_AXIS] =   gSensorsData.tangentAccels[Y_AXIS];
-    aHcHvAccel[Z_AXIS] = -(gSensorsData.tangentAccels[Z_AXIS] + 1.0);
-
-    /// X-Axis
-    tmp = (int)( SCALE_BY_2POW16_OVER_20( aHcHvAccel[X_AXIS] ) );
-    index = uint16ToBuffer(response,
-                           index,
-                           tmp);
-    /// Y-Axis
-    tmp = (int)( SCALE_BY_2POW16_OVER_20( aHcHvAccel[Y_AXIS] ) );
-    index = uint16ToBuffer(response,
-                           index,
-                           tmp);
-    /// Z-Axis
-    tmp = (int)( SCALE_BY_2POW16_OVER_20( aHcHvAccel[Z_AXIS] ) );
-    index = uint16ToBuffer(response,
-                           index,
-                           tmp);
-    return index;
-}*/ 
-
-/* end appendTangentAccels */
-
-
 /** ****************************************************************************
  * @name appendRateTemp
  * @brief formats rate and board temperature data for output.
@@ -882,7 +715,7 @@ uint16_t appendRateTemp (uint8_t  *response,
 
 
 /** ****************************************************************************
- * @name appendRateTemp
+ * @name appendChipTemps
  * @brief formats rate and board temperature data for output.
  * @author Darren Liccardo, Dec. 2005
  * @author Dong An, 2007,2008
@@ -899,7 +732,7 @@ uint16_t appendChipTemps (uint8_t  *response,
     float    ftmp;
 
     ftmp   = GetChipTemp(chipId);
-    ftmp   *= 327.68;
+    ftmp   *= 300.0; // ftmp   *= 327.68;
     tmp    = (int16_t)ftmp;
     index  = uint16ToBuffer(response, index, tmp);
 
@@ -935,8 +768,8 @@ uint16_t appendTemps (uint8_t  *response,
 //    }
 
     // Convert to scaled output T { degC ] * ( 2^16/200 )
-    ftmp    = GetUnitTemp();
-    ftmp   *= 327.68;
+    ftmp   = GetUnitTemp();
+    ftmp   *= 300.0; // ftmp   *= 327.68;
     tmp    = (int16_t)ftmp;
 
     for(int i = 0; i < 4; i++){
@@ -963,50 +796,12 @@ uint16_t appendTemp (uint8_t  *response, uint16_t index)
 
     // Convert to scaled output T { degC ] * ( 2^16/200 )
     ftmp  = GetUnitTemp();
-    ftmp  *= 327.68;
+    ftmp   *= 300.0; // ftmp   *= 327.68;
     tmp   = (int16_t)ftmp;
     index = uint16ToBuffer(response, index, tmp);
 
     return index;
 } /*end appendTemps */
-/** ****************************************************************************
- * @name appendAttitudeTrue
- * @brief calculates roll, pitch, and true heading and formats them for output.
- * @author Darren Liccardo, Dec. 2005
- * @author Dong An, 2007,2008
- * Trace: [SDD_APPEND_ATTITUDE_TRUE <-- SRC_APPEND_ATTITUDE_TRUE]
- * [SDD_APPEND_TEMPS_02 <-- SRC_APPEND_TEMPS]
- * @param [in] response - points to the beginning of the packet array.
- * @param [in] index - response[index] is where data is added.
- * @retval  modified index to next avaliable response buffer location.
- ******************************************************************************/
-#ifdef USE_ALGORITHM 
-
-uint16_t appendAttitudeTrue (uint8_t  *response,
-                             uint16_t index)
-{
-    int16_t tmp;
-
-    // X-Axis (angle in radians
-    tmp = (int16_t) SCALE_BY_2POW16_OVER_2PI(gKalmanFilter.eulerAngles[ROLL]);
-    index = uint16ToBuffer(response,
-                           index,
-                           tmp);
-    /// Y-Axis
-    tmp = (int16_t) SCALE_BY_2POW16_OVER_2PI(gKalmanFilter.eulerAngles[PITCH]);
-    index = uint16ToBuffer(response,
-                           index,
-                           tmp);
-    /// Z-Axis
-    tmp = (int16_t) SCALE_BY_2POW16_OVER_2PI(gKalmanFilter.eulerAngles[YAW]);
-    index = uint16ToBuffer(response,
-                           index,
-                           tmp);
-    return index;
-} 
-#endif // USE_ALGORITHM 
-
-/* end appendAttitudeTrue */
 
 /** ****************************************************************************
  * @name appendInertialCounts
@@ -1145,146 +940,6 @@ uint16_t appendAllTempCounts (uint8_t  *response,
                            temp);
     return index;
 } /* end appendAllTempCounts */
-
-/** ****************************************************************************
- * @name appendGpsVel
- * @brief Add GPS North East and Down velocities to message
- * @author Doug Hiranaka, 2014
- * Trace:
- * @param [in] response - points to the beginning of the packet array.
- * @param [in] index - response[index] is where data is added.
- * @retval  modified index to next avaliable response buffer location.
- ******************************************************************************/
-/*
-uint16_t appendGpsVel (uint8_t  *response,
-                       uint16_t index)
-{
-    uint16_t temp = 0;
-
-    /// North
-    temp = (uint16_t)SCALE_BY_2POW16_OVER_512(gGpsDataPtr->vNed[GPS_NORTH]);
-    index = uint16ToBuffer(response,
-                           index,
-                           temp);
-    /// East
-    temp = (uint16_t)SCALE_BY_2POW16_OVER_512(gGpsDataPtr->vNed[GPS_EAST]);
-    index = uint16ToBuffer(response,
-                           index,
-                           temp);
-    /// Down
-    temp = (uint16_t)SCALE_BY_2POW16_OVER_512(gGpsDataPtr->vNed[GPS_DOWN]);
-    index = uint16ToBuffer(response,
-                           index,
-                           temp);
-    return index;
-} 
-*/
-/* end appendGpsVel */
-
-
-/** ****************************************************************************
- * @name appendKalmanVel
- * @brief Add North East and Down velocities from the EKF to message
- * @author t. malerich
- * Trace:
- * @param [in] response - points to the beginning of the packet array.
- * @param [in] index - response[index] is where data is added.
- * @retval  modified index to next avaliable response buffer location.
- ******************************************************************************/
-/*
-uint16_t appendKalmanVel(uint8_t  *response,
-                         uint16_t index)
-{
-    /// North
-    uint16_t temp = (uint16_t)SCALE_BY_2POW16_OVER_512(gKalmanFilter.Velocity_N[GPS_NORTH]);
-    index = uint16ToBuffer(response,
-                           index,
-                           temp);
-    /// East
-    temp = (uint16_t)SCALE_BY_2POW16_OVER_512(gKalmanFilter.Velocity_N[GPS_EAST]);
-    index = uint16ToBuffer(response,
-                           index,
-                           temp);
-    /// Down
-    temp = (uint16_t)SCALE_BY_2POW16_OVER_512(gKalmanFilter.Velocity_N[GPS_DOWN]);
-    index = uint16ToBuffer(response,
-                           index,
-                           temp);
-    return index;
-} 
-*/
-/* end appendKalmanVel */
-
-
-/** ****************************************************************************
- * @name appendGpsPos
- * @brief Add GPS Latitude, longitude and Altitude (elevation) to message
- * @author Doug Hiranaka, 2014
- * Trace:
- * @param [in] response - points to the beginning of the packet array.
- * @param [in] index - response[index] is where data is added.
- * @retval  modified index to next avaliable response buffer location.
- ******************************************************************************/
-/*
-uint16_t appendGpsPos (uint8_t  *response,
-                       uint16_t index)
-{
-  int16_t temp16 = 0;
-  int32_t temp32 = 0;
-
-    /// Longitude
-    temp32 = (int32_t) SCALE_BY_2POW32_OVER_2PI(gGpsDataPtr->lonSign * gGpsDataPtr->lon * D2R);
-    index = uint32ToBuffer(response,
-                           index,
-                           temp32);
-    /// Latitude
-    temp32 = (int32_t) SCALE_BY_2POW32_OVER_2PI(gGpsDataPtr->latSign * gGpsDataPtr->lat * D2R) ;
-    index = uint32ToBuffer(response,
-                           index,
-                           temp32);
-    /// Down
-    temp16 = (int16_t) SCALE_BY_2POW16_OVER_2POW14(gGpsDataPtr->alt);
-    index = uint16ToBuffer(response,
-                           index,
-                           temp16);
-    return index;
-} 
-*/
-/* end appendGpsPos */
-
-
-/** ****************************************************************************
- * @name appendKalmanPos
- * @brief Add EKF Latitude, longitude and Altitude (elevation) to message
- * @author t. malerich
- * Trace:
- * @param [in] response - points to the beginning of the packet array.
- * @param [in] index - response[index] is where data is added.
- * @retval  modified index to next avaliable response buffer location.
- ******************************************************************************/
-/*
-uint16_t appendKalmanPos(uint8_t  *response,
-                         uint16_t index)
-{
-    /// Longitude
-    int32_t temp32 = (int32_t) SCALE_BY_2POW32_OVER_2PI(gKalmanFilter.llaDeg[LON_IDX] * D2R);
-    index = uint32ToBuffer(response,
-                           index,
-                           temp32);
-    /// Latitude
-    temp32 = (int32_t) SCALE_BY_2POW32_OVER_2PI(gKalmanFilter.llaDeg[LAT_IDX] * D2R) ;
-    index = uint32ToBuffer(response,
-                           index,
-                           temp32);
-    /// altitude
-    int16_t temp16 = (int16_t) SCALE_BY_2POW16_OVER_2POW14(gKalmanFilter.llaDeg[ALT_IDX]);
-    index = uint16ToBuffer(response,
-                           index,
-                           temp16);
-    return index;
-}
-*/
- /* end appendKalmanPos */
 
 
 /** ****************************************************************************

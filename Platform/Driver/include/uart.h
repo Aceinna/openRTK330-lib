@@ -52,11 +52,13 @@ extern fifo_type uart_bt_rx_fifo;
 extern fifo_type uart_user_rx_fifo;
 
 #define USER_UART_DMA_FIFO
+#define DEBUG_UART_DMA_FIFO
+
 #ifdef USER_UART_DMA_FIFO
 #define UART_TX_FIFO_MANAGE_NUM 1
 
 #define DMA_TX_FIFO_BUF_SIZE 2048
-
+#define DEBUG_DMA_TX_FIFO_BUF_SIZE (1024*4)
 typedef struct _uart_tx_fifo
 {
     fifo_type uart_tx_fifo;

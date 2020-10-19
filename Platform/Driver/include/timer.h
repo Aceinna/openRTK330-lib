@@ -34,5 +34,5 @@ time_t get_time_of_msec();
 volatile mcu_time_base_t *get_mcu_time();
 
 void release_sem(osSemaphoreId sem);
-
+double get_gnss_time();
 #endif

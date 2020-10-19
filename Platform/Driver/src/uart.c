@@ -59,8 +59,12 @@ fifo_type uart_user_rx_fifo;
 #ifdef USER_UART_DMA_FIFO
 static uint8_t user_uart_dma_tx_buff[DMA_TX_FIFO_BUF_SIZE];
 uart_tx_dma_fifo_s user_uart_dma_tx_fifo;
-#endif
 
+#endif
+#ifdef DEBUG_UART_DMA_FIFO
+static uint8_t debug_uart_dma_tx_buff[DEBUG_DMA_TX_FIFO_BUF_SIZE];
+uart_tx_dma_fifo_s debug_uart_dma_tx_fifo;
+#endif
 
 static const struct uart_config_t uart_config[UART_MAX] = {
     {
@@ -152,6 +156,7 @@ int uart_read_bytes(uart_port_e uart_num, uint8_t* buf, uint32_t len, TickType_t
 }
 
 static uint8_t data_to_write[DMA_TX_FIFO_BUF_SIZE];
+static uint8_t data_to_debug[DEBUG_DMA_TX_FIFO_BUF_SIZE];
 int uart_write_bytes(uart_port_e uart_num, const char* src, size_t size, bool is_wait)	//TODO:
 {
 #ifdef USER_UART_DMA_FIFO
@@ -172,7 +177,26 @@ int uart_write_bytes(uart_port_e uart_num, const char* src, size_t size, bool is
         }
         return RTK_OK;
     }
+#ifdef DEBUG_UART_DMA_FIFO
+    else if(uart_num == UART_DEBUG)
+    {
+        fifo_push(&debug_uart_dma_tx_fifo.uart_tx_fifo,(uint8_t*)src,size);
+        debug_uart_dma_tx_fifo.frame_num+= 1;
+        debug_uart_dma_tx_fifo.data_total_num+= size;
+        if(debug_uart_dma_tx_fifo.data_total_num > DEBUG_DMA_TX_FIFO_BUF_SIZE)
+        {
+        }
+        if(p_uart_obj[UART_DEBUG]->huart->gState == HAL_UART_STATE_READY)
+        {
+            int data_len = fifo_get(&debug_uart_dma_tx_fifo.uart_tx_fifo,data_to_debug,DEBUG_DMA_TX_FIFO_BUF_SIZE);
+            debug_uart_dma_tx_fifo.frame_num = 0;
+            debug_uart_dma_tx_fifo.data_total_num = 0;
+            HAL_UART_Transmit_DMA(p_uart_obj[UART_DEBUG]->huart, data_to_debug, data_len);
+        }
+        return RTK_OK;
+    }
     else
+#endif
 #endif
     {
         while(HAL_UART_Transmit_DMA(p_uart_obj[uart_num]->huart, (uint8_t *)src, size) == HAL_BUSY)
@@ -259,7 +283,17 @@ int uart_driver_install(uart_port_e uart_num, fifo_type* uart_rx_fifo,UART_Handl
         user_uart_dma_tx_fifo.is_data_available = 0;
         fifo_init(&user_uart_dma_tx_fifo.uart_tx_fifo, user_uart_dma_tx_buff, DMA_TX_FIFO_BUF_SIZE); 
     }
-#endif    
+#endif
+#ifdef DEBUG_UART_DMA_FIFO
+    if(uart_num == UART_DEBUG)           // TODO:
+    {
+        debug_uart_dma_tx_fifo.data_total_num = 0;
+        debug_uart_dma_tx_fifo.is_dma_busy = 0;
+        debug_uart_dma_tx_fifo.frame_num = 0;
+        debug_uart_dma_tx_fifo.is_data_available = 0;
+        fifo_init(&debug_uart_dma_tx_fifo.uart_tx_fifo, debug_uart_dma_tx_buff, DEBUG_DMA_TX_FIFO_BUF_SIZE); 
+    }
+#endif
     return ret;
 }
 
@@ -291,6 +325,13 @@ static void uart_isr_if(uart_port_e uart_num)
         uart_rx_dma_enable(uart_num);
         uart_dma_enanle_it(uart_num,UART_IT_IDLE);
     }
+#if 1
+    if (RESET != __HAL_UART_GET_FLAG(p_uart_obj[uart_num]->huart, UART_FLAG_ORE))
+    {               
+        __HAL_UART_CLEAR_OREFLAG(p_uart_obj[uart_num]->huart);
+    }
+#endif
+
     HAL_UART_IRQHandler(p_uart_obj[uart_num]->huart);
     if((uart_num == UART_BT) || (uart_num == UART_DEBUG))
     {

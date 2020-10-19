@@ -235,6 +235,7 @@ typedef struct
   u8_t shtml;
 } default_filename;
 
+#ifndef BASE_STATION
 const default_filename g_psDefaultFilenames[] = {
   {"/NtripCfg.shtml", true },
   {"/NtripCfg.ssi", true },
@@ -242,6 +243,15 @@ const default_filename g_psDefaultFilenames[] = {
   {"/NtripCfg.html", false },
   {"/NtripCfg.htm", false }
 };
+#else
+const default_filename g_psDefaultFilenames[] = {
+  {"/runStatus.shtml", true },
+  {"/runStatus.ssi", true },
+  {"/runStatus.shtm", true },
+  {"/runStatus.html", false },
+  {"/runStatus.htm", false }
+};
+#endif
 
 #define NUM_DEFAULT_FILENAMES (sizeof(g_psDefaultFilenames) /   \
                                sizeof(default_filename))
@@ -2134,7 +2144,7 @@ err_t httpd_post_begin(void *connection, const char *uri, const char *http_reque
   return ERR_ARG;
 }
 
-#define LWIP_HTTPD_POST_MAX_PAYLOAD_LEN     512
+#define LWIP_HTTPD_POST_MAX_PAYLOAD_LEN     1024
 static char http_post_payload[LWIP_HTTPD_POST_MAX_PAYLOAD_LEN];
 static u16_t http_post_payload_len = 0;
 err_t httpd_post_receive_data(void *connection, struct pbuf *p)

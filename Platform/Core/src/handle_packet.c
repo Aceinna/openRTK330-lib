@@ -22,9 +22,7 @@
 #include "eepromAPI.h"
 #include "crc16.h"
 #include "BITStatus.h"
-#ifndef SENSOR_UNUSED
-	#include "calibrationAPI.h"
-#endif
+#include "calibrationAPI.h"
 #include "configurationAPI.h"
 #include "hwAPI.h"
 #include "platformAPI.h"
@@ -33,7 +31,7 @@
 #include "bsp.h"
 #include "commAPI.h"
 #include "uart.h"
-//#include "s_eeprom.h"
+
 static UcbPacketStruct primaryUcbPacket;    /// all other data
 
 BOOL fReset = FALSE;
@@ -307,14 +305,14 @@ void _UcbReadFields (uint16_t port,
                     ptrUcbPacket->payload[(fieldCount * 4) + 1] = (uint8_t)((fieldId[fieldCount] >> 8) & 0xff);
                     ptrUcbPacket->payload[(fieldCount * 4) + 2] = (uint8_t)( fieldId[fieldCount]       & 0xff);
 
-                    readEEPROMProdConfig( &fieldData);
+                    EEPROM_ReadProdConfig( &fieldData);
                     ptrUcbPacket->payload[(fieldCount * 4) + 3] = (uint8_t)((fieldData >> 8) & 0xff);
                     ptrUcbPacket->payload[(fieldCount * 4) + 4] = (uint8_t)( fieldData       & 0xff);
                 } else {	/// normal field, exists in configuration structure
                     ptrUcbPacket->payload[(fieldCount * 4) + 1] = (uint8_t)((fieldId[fieldCount] >> 8) & 0xff);
                     ptrUcbPacket->payload[(fieldCount * 4) + 2] = (uint8_t)( fieldId[fieldCount]       & 0xff);
                     /// read field from EEPROM
-                    readEEPROMByte(fieldId[fieldCount], sizeof(fieldData), &fieldData);
+                    EEPROM_ReadByte(fieldId[fieldCount], sizeof(fieldData), &fieldData);
                     ptrUcbPacket->payload[(fieldCount * 4) + 3] = (uint8_t)((fieldData >> 8) & 0xff);
                     ptrUcbPacket->payload[(fieldCount * 4) + 4] = (uint8_t)( fieldData       & 0xff);
                 }
@@ -486,7 +484,7 @@ void _UcbReadEeprom (uint16_t port, UcbPacketStruct    *ptrUcbPacket)
     /// verify that the packet length matches packet specification
     if (ptrUcbPacket->payloadLength == 3) {
         ptrUcbPacket->payloadLength = (uint8_t)(ptrUcbPacket->payloadLength + bytesToRead);
-        readEEPROMByte(startAddress, bytesToRead, &(ptrUcbPacket->payload[3]));
+        EEPROM_ReadByte(startAddress, bytesToRead, &(ptrUcbPacket->payload[3]));
 	} else {
         _SetNak(port, ptrUcbPacket);
     }
@@ -523,7 +521,7 @@ static void _UcbReadCal (uint16_t port, UcbPacketStruct    *ptrUcbPacket)
     /// verify that the packet length matches packet specification
     if (ptrUcbPacket->payloadLength == 3) {
         ptrUcbPacket->payloadLength = (uint8_t)(ptrUcbPacket->payloadLength + bytesToRead);
-        readFromEEPROMCalPartition(startAddress, bytesToRead, &(ptrUcbPacket->payload[3]));
+        EEPROM_ReadFromCalPartition(startAddress, bytesToRead, &(ptrUcbPacket->payload[3]));
 	} else {
         _SetNak(port, ptrUcbPacket);
     }
@@ -564,7 +562,7 @@ void _UcbWriteEeprom (uint16_t port,
         gBitStatus.swDataBIT.bit.calibrationCRCError = TRUE;
 
         /// 0 means no errors
-        if (writeEEPROMWords(startAddress,
+        if (EEPROM_WriteWords(startAddress,
                              wordsToWrite,
                              &(ptrUcbPacket->payload[3])) == 0) {
             ptrUcbPacket->payloadLength = 3;
@@ -604,7 +602,7 @@ void _UcbWriteCal (uint16_t port,
     /// verify that the packet length matches packet specification
     if (ptrUcbPacket->payloadLength == (bytesToWrite + 3)) {
         /// 0 means no errors
-        if (writeToEEPROMCalPartition(startAddress, bytesToWrite,
+        if (EEPROM_WriteToCalPartition(startAddress, bytesToWrite,
                              &(ptrUcbPacket->payload[3])) != 0) {
             ptrUcbPacket->payloadLength = 3;
         } else {
@@ -619,6 +617,47 @@ void _UcbWriteCal (uint16_t port,
 }
 
 /** ****************************************************************************
+ * @name _UcbWriteApp
+ * @brief Write data as 16 bit cells into an unlocked EEPROM.
+ *
+ * @param [in] port -  number request came in on, the reply will go out this port
+ * @param [out] packetPtr - data part of packet
+ * @retval N/A
+ ******************************************************************************/
+static void _UcbWriteApp (uint16_t port, UcbPacketStruct    *ptrUcbPacket)
+{
+    uint32_t startAddress;
+    uint8_t  wordsToWrite;
+    uint16_t bytesToWrite;
+// packet structure 
+// header   code  payload len  start addr  numbytes              crc 
+// 5555     5747  [x]          [yyyy]     [z]        [payload]   [cc]
+    startAddress = (uint32_t)((ptrUcbPacket->payload[0] << 24) |
+                               ptrUcbPacket->payload[1] << 16 |
+                               ptrUcbPacket->payload[2] << 8 |
+                               ptrUcbPacket->payload[3]);
+    wordsToWrite = ptrUcbPacket->payload[4];
+    bytesToWrite = (uint16_t)wordsToWrite;
+
+//    SetMaxDelay_Watchdog();
+
+    /// verify that the packet length matches packet specification
+    if ((ptrUcbPacket->payloadLength == (bytesToWrite + 5))) {
+
+		//if(!EEPROM_WriteApp(startAddress,&ptrUcbPacket->payload[5],bytesToWrite)){           //TODO:
+		if(EEPROM_WriteApp(startAddress,&ptrUcbPacket->payload[5],bytesToWrite)){           //TODO:
+            ptrUcbPacket->payloadLength = 5;
+        } else {
+            _SetNak(port, ptrUcbPacket);
+        }
+    } else {
+        _SetNak(port, ptrUcbPacket);
+    }
+	HandleUcbTx(port, ptrUcbPacket);
+//    RestoreDelay_Watchdog();	
+}
+
+/** ****************************************************************************
  * @name _UcbJump2BOOT
  * @brief
  * Trace:
@@ -630,8 +669,6 @@ void _UcbWriteCal (uint16_t port,
  ******************************************************************************/
 static void _UcbJump2BOOT (uint16_t port, UcbPacketStruct    *ptrUcbPacket)
 {
-
-    forcedBootMode = TRUE;
 	HandleUcbTx(port, ptrUcbPacket);
     DelayMs(10);
     if(platformIsInBootMode()){
@@ -654,27 +691,11 @@ static void _UcbJump2BOOT (uint16_t port, UcbPacketStruct    *ptrUcbPacket)
  ******************************************************************************/
 static void _UcbJump2APP (uint16_t port, UcbPacketStruct    *ptrUcbPacket)
 {
-
-    //BOOL sigValid = FALSE;
-#if 0
-#ifndef BOOT_MODE
-	    HandleUcbTx(port, ptrUcbPacket);
-        // nothing to do - already there
-        return;
-#endif
-#endif
-#if 0
-    sigValid = ApplyAppSignature(TRUE);
-	if(!sigValid){
-        _SetNak(port, ptrUcbPacket);
-    }
-#endif
     HandleUcbTx(port, ptrUcbPacket);
     DelayMs(10);
     //return;
 //    if(sigValid)  
     {
-        SaveAppFlag();
         HW_EnforceAppMode();
         HW_SystemReset();
     }
@@ -694,7 +715,6 @@ static void _Ucb_HARDWARE_TEST (uint16_t port, UcbPacketStruct    *ptrUcbPacket)
 	ResetForEnterBootMode();
     DelayMs(10);
     {
-        // SaveAppFlag();
         HW_HDTestMode();
         HW_SystemReset();
     }
@@ -739,8 +759,6 @@ static void _SetNak (uint16_t port, UcbPacketStruct    *ptrUcbPacket)
 
 	/// return NAK, requested packet type placed in data field by external port
 	ptrUcbPacket->packetType 	= UCB_NAK;
-    ptrUcbPacket->code_MSB      = 0x15;
-    ptrUcbPacket->code_LSB      = 0x15;
 	ptrUcbPacket->payloadLength = UCB_PACKET_TYPE_LENGTH;
 }
 
@@ -799,6 +817,8 @@ void HandleUcbPacket (UcbPacketStruct *ptrUcbPacket)
                 _UcbReadCal(port, ptrUcbPacket); break;
             case UCB_SOFTWARE_RESET:
                 _UcbSoftwareReset(port, ptrUcbPacket); break;
+            case UCB_WRITE_APP:
+                _UcbWriteApp(port, ptrUcbPacket); break;
 #ifndef BOOT_MODE
             case UCB_SET_FIELDS:
                 _UcbSetFields(port, ptrUcbPacket); break;
@@ -853,6 +873,13 @@ void HandleUcbPacket (UcbPacketStruct *ptrUcbPacket)
  * @param [Out] N/A
  * @retval N/A
  ******************************************************************************/
+
+void handle_tcp_commands(void)
+{
+    HandleUcbRx (&primaryUcbPacket);
+}
+
+
 void ProcessUserCommands (void)
 {
     /// check received packets and handle appropriately

@@ -46,7 +46,6 @@ int      configGetRateLfpFreq();
 uint16_t configGetPrefilterFreq();
 BOOL     configSelectUserLPFilter(int sensor, int cutoffFreq, BOOL fApply);
 int      configApplyOrientation(uint16_t orientation);
-void     configSetUsedSensors(int idx, uint8_t mask);
 uint16_t configGetUsedChips(void);
 uint16_t configGetActiveChips(void);
 uint16_t configGetUsedSensors(int chipIdx);
@@ -75,5 +74,6 @@ BOOL     configIsCanTermResistorEnabled();
 void     configSetPacketRateDividorForSPI(uint16_t dvd);
 uint16_t configGetPacketRateDividorForSPI();
 void     ApplyFactoryConfiguration();
-extern BOOL  SaveAppFlag(void);
+void     configSetUsedChips(uint8_t mask);
+
 #endif

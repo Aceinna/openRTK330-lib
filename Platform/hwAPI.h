@@ -16,8 +16,14 @@ BOOL    HW_IsTestOK();
 
 // system related functions
 void    HW_SystemReset(void);
-void    HW_JumpToApp();
+BOOL    HW_IsBootModeEnforced();
 void    HW_EnforceBootMode();
+BOOL    HW_IsAppModeEnforced();
+void    HW_EnforceAppMode();
+void    HW_HDTestMode();
+void    HW_ClearBootSignature();
+bool    IsNeedToHardwareTest();
+BOOL    IsNeedToUpdateApp();
 
 extern BOOL fSPI;
 extern BOOL fUART;

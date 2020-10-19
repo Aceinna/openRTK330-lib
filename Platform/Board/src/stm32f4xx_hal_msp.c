@@ -518,6 +518,119 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
 
 }
 
+void HAL_CAN_MspInit(CAN_HandleTypeDef *hcan)
+{
+    GPIO_InitTypeDef GPIO_InitStruct;
+
+    if (hcan->Instance == CAN1)
+    {
+        USER_CAN_CLK_ENABLE();
+        USER_CAN_PORT_RCC_CLK_ENABLE();
+
+        GPIO_InitTypeDef GPIO_Initure;
+        GPIO_Initure.Pin = USER_CAN_AB_PIN;
+        GPIO_Initure.Mode = GPIO_MODE_OUTPUT_PP;
+        GPIO_Initure.Pull = GPIO_PULLUP;
+        GPIO_Initure.Speed = GPIO_SPEED_FREQ_HIGH;
+        HAL_GPIO_Init(USER_CAN_AB_PORT, &GPIO_Initure);
+
+        GPIO_Initure.Pin = USER_CAN_120R_CTL_PIN;
+        HAL_GPIO_Init(USER_CAN_120R_CTL_PORT, &GPIO_Initure);
+
+        HAL_GPIO_WritePin(USER_CAN_120R_CTL_PORT, USER_CAN_120R_CTL_PIN, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(USER_CAN_AB_PORT, USER_CAN_AB_PIN, GPIO_PIN_RESET);
+
+        GPIO_InitStruct.Pin = USER_CAN_TX_PIN;
+        GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+        GPIO_InitStruct.Pull = GPIO_PULLUP;
+        GPIO_InitStruct.Alternate = USER_CAN_TX_AF;
+        HAL_GPIO_Init(USER_CAN_TX_PORT, &GPIO_InitStruct);
+
+        GPIO_InitStruct.Pin = USER_CAN_RX_PIN;
+        GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+        GPIO_InitStruct.Pull = GPIO_PULLUP;
+        GPIO_InitStruct.Alternate = USER_CAN_RX_AF;
+        HAL_GPIO_Init(USER_CAN_RX_PORT, &GPIO_InitStruct);
+
+        HAL_NVIC_SetPriority(USER_CAN_RX_IRQn, 1, 0);
+        HAL_NVIC_EnableIRQ(USER_CAN_RX_IRQn);
+
+        HAL_NVIC_SetPriority(USER_CAN_TX_IRQn, 1, 0);
+        HAL_NVIC_EnableIRQ(USER_CAN_TX_IRQn);
+    }
+}
+
+void HAL_CAN_MspDeInit(CAN_HandleTypeDef *hcan)
+{
+    if (hcan->Instance == CAN1)
+    {
+        USER_CAN_FORCE_RESET();
+        USER_CAN_RELEASE_RESET();
+
+        HAL_GPIO_DeInit(USER_CAN_AB_PORT, USER_CAN_AB_PIN);
+        HAL_GPIO_DeInit(USER_CAN_120R_CTL_PORT, USER_CAN_120R_CTL_PIN);
+        HAL_GPIO_DeInit(USER_CAN_TX_PORT, USER_CAN_TX_PIN);
+        HAL_GPIO_DeInit(USER_CAN_RX_PORT, USER_CAN_RX_PIN);
+
+        HAL_NVIC_DisableIRQ(USER_CAN_RX_IRQn);
+        HAL_NVIC_DisableIRQ(USER_CAN_TX_IRQn);
+    }
+}
+
+void HAL_RNG_MspInit(RNG_HandleTypeDef *hrng)
+{
+    __HAL_RCC_RNG_CLK_ENABLE();
+}
+
+/**
+* @brief ADC MSP Initialization
+* This function configures the hardware resources used in this example
+* @param hadc: ADC handle pointer
+* @retval None
+*/
+void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
+{
+
+  if(hadc->Instance==ADC1)
+  {
+  /* USER CODE BEGIN ADC1_MspInit 0 */
+
+  /* USER CODE END ADC1_MspInit 0 */
+    /* Peripheral clock enable */
+    __HAL_RCC_ADC1_CLK_ENABLE();
+  /* USER CODE BEGIN ADC1_MspInit 1 */
+
+  /* USER CODE END ADC1_MspInit 1 */
+  }
+
+}
+
+/**
+* @brief ADC MSP De-Initialization
+* This function freeze the hardware resources used in this example
+* @param hadc: ADC handle pointer
+* @retval None
+*/
+
+void HAL_ADC_MspDeInit(ADC_HandleTypeDef* hadc)
+{
+
+  if(hadc->Instance==ADC1)
+  {
+  /* USER CODE BEGIN ADC1_MspDeInit 0 */
+
+  /* USER CODE END ADC1_MspDeInit 0 */
+    /* Peripheral clock disable */
+    __HAL_RCC_ADC1_CLK_DISABLE();
+  /* USER CODE BEGIN ADC1_MspDeInit 1 */
+
+  /* USER CODE END ADC1_MspDeInit 1 */
+  }
+
+}
+
 /* USER CODE BEGIN 1 */
 
 /* USER CODE END 1 */

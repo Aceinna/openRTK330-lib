@@ -394,17 +394,17 @@ void itoa_64bit( int64_t value, char *sp, int radix )
 
 }
 
-static char buffer[500];
+// static char buffer[500];
 
-int  tprintf(char *format, ...)
-{
-  int len;
-  va_list args;
-  va_start (args, format);
-  len = vsprintf (buffer,format, args);
-  va_end (args);
-  DebugPrintString(buffer);
+// int  tprintf(char *format, ...)
+// {
+//   int len;
+//   va_list args;
+//   va_start (args, format);
+//   len = vsprintf (buffer,format, args);
+//   va_end (args);
+//   DebugPrintString(buffer);
 
-  return len;
-}
+//   return len;
+// }
 

@@ -11,5 +11,6 @@ void ecef2pos(const double *r, double *pos);
 void deg2dms(double deg, double *dms, int ndec);
 void blh2C_en(const double *blh, double C_en[3][3]);
 void ecef2ned(const double *xyz, double *ned);
+void pos2ecef(const double *pos, double *r);
 
 #endif /* _NAV_MATH_H */

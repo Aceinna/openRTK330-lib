@@ -279,7 +279,7 @@ netbios_recv(void *arg, struct udp_pcb *upcb, struct pbuf *p, ip_addr_t *addr, u
         if (NETBIOS_STRCMP(netbios_name, gnetbios_name) == 0) {
           struct pbuf *q;
           struct netbios_resp *resp;
-
+          set_server_ip(addr);
           q = pbuf_alloc(PBUF_TRANSPORT, sizeof(struct netbios_resp), PBUF_RAM);
           if (q != NULL) {
             resp = (struct netbios_resp*)q->payload;

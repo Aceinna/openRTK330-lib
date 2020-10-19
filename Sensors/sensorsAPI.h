@@ -1,5 +1,5 @@
 /** ***************************************************************************
- * @file sensorsI.h API functions for Magnitometer functionality
+ * @file sensorsAPI.h API functions for Magnitometer functionality
  *
  * THIS CODE AND INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY
  * KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
@@ -8,7 +8,7 @@
  *
  *****************************************************************************/
 /*******************************************************************************
-Copyright 2020 ACEINNA, INC
+Copyright 2018 ACEINNA, INC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,19 +28,6 @@ limitations under the License.
 
 #include <stdint.h>
 
-
-
-typedef struct {
-    // Timer output counter
-    uint32_t timerCntr, dTimerCntr;
-
-    // Algorithm states
-    double accel_g[3];
-    double rate_radPerSec[3];
-    double rate_degPerSec[3];
-//  double mag_G[3];
-    double temp_C;
-} IMUDataStruct;
 /** ****************************************************************************
  * @name GetAccelData_g
  * @brief Get scaled accelerometer data in G
@@ -48,8 +35,8 @@ typedef struct {
  * @retval N/A
  ******************************************************************************/
 void  GetAccelData_g(float *data);
-void GetAccelData_g_AsDouble(double *data);
 void  GetChipAccelData_g(int idx, float *data);
+void  GetAccelData_g_AsDouble(double *data);
 
 /** ****************************************************************************
  * @name GetAccelData_mPerSecSq
@@ -57,7 +44,8 @@ void  GetChipAccelData_g(int idx, float *data);
  * @param [in] data - pointer to external data structure
  * @retval N/A
  ******************************************************************************/
-void  GetAccelData_mPerSecSq(float *data);
+void  GetAccelData_mPerSecSq(double *data);
+void  GetChipAccelData_mPerSecSq(int idx, float *data);
 
 /** ****************************************************************************
  * @name GetRateData_radPerSec
@@ -75,6 +63,7 @@ void  GetRateData_radPerSec_AsDouble(double *data);
  * @retval N/A
  ******************************************************************************/
 void  GetRateData_degPerSec(float *data);
+void  GetChipRateData_degPerSec(int idx, float *data);
 void  GetRateData_degPerSec_AsDouble(double *data);
 
 /** ****************************************************************************
@@ -83,9 +72,8 @@ void  GetRateData_degPerSec_AsDouble(double *data);
  * @param [in] data - pointer to external data structure
  * @retval N/A
  ******************************************************************************/
-void  GetMagData_G(float *data);
-void  GetMagData_G_AsDouble(double *data);
-
+void GetMagData_G(float *data);
+void GetMagData_G_AsDouble(double *data);
 
 /** ****************************************************************************
  * @name GetBoardTempData
@@ -93,7 +81,7 @@ void  GetMagData_G_AsDouble(double *data);
  * @param [in] temp - pointer to external data structure
  * @retval N/A
  ******************************************************************************/
-void  GetBoardTempData(float *temp); 
+void  GetBoardTempData(double *temp); 
 void  GetBoardTempData_AsDouble(double *data);
 
 /** ****************************************************************************
@@ -152,12 +140,23 @@ uint8_t  InitSensors();
 
 
 /** ****************************************************************************
+ * @name GetRawTempCounts 
+ * @brief Returns raw temperature counts (factory use)
+ * @retval N/A
+ ******************************************************************************/
+int   GetRawTempCounts();
+
+/** ****************************************************************************
  * @name GetRawChipSensorsDataPtr 
  * @brief Returns pointer to raw sensors data structure (factory use)
  * @retval N/A
  ******************************************************************************/
-int   *GetRawChipSensorsDataPtr(int chipId);
-int   *GetRawSensorsDataPtr();
+int  *GetRawChipSensorsDataPtr(int chipId);
+int  *GetRawSensorsDataPtr();
+
+
+
+uint32_t GetSensorsSamplingTstamp(void);
 
 /** ****************************************************************************
  * @name FillRawSensorsPayload 
@@ -166,21 +165,5 @@ int   *GetRawSensorsDataPtr();
  ******************************************************************************/
 int  FillRawSensorsPayload(void *ptr);
 
-/** ****************************************************************************
- * @name GetRateData_degPerSec
- * @brief Get scaled rate sesnors data in deg/ses
- * @param [in] data - pointer to external data structure
- * @retval N/A
- ******************************************************************************/
-// void  GetRateData_degPerSec(double *data);
-void  GetChipRateData_degPerSec(int idx, float *data);
 
-/** ****************************************************************************
- * @name GetRawTempCounts 
- * @brief Returns raw temperature counts (factory use)
- * @retval N/A
- ******************************************************************************/
-int   GetRawTempCounts();
-
-uint32_t GetSensorsSamplingTstamp();
 #endif

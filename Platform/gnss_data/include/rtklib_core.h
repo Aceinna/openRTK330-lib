@@ -75,6 +75,7 @@ typedef struct {                      /* observation data record */
 	double L[NFREQ + NEXOBS];           /* observation data carrier-phase (cycle) */
 	double P[NFREQ + NEXOBS];           /* observation data pseudorange (m) */
 	float  D[NFREQ + NEXOBS];           /* observation data doppler frequency (Hz) */
+	float azel[2];
 } obsd_t;
 
 typedef struct {                      /* GPS/QZS/GAL broadcast ephemeris type */

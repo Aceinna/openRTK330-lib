@@ -141,6 +141,8 @@ void HAL_ETH_ErrorCallback(ETH_HandleTypeDef *heth)
  ******************************************************************************/
 static void low_level_init(struct netif *netif)
 {
+    uint8_t* p_mac = get_static_mac();
+
     KSZ8041NL_reset_port_init();
 
     KSZ8041NL_reset();
@@ -150,7 +152,7 @@ static void low_level_init(struct netif *netif)
     EthHandle.Init.Speed = ETH_SPEED_100M;
     EthHandle.Init.DuplexMode = ETH_MODE_FULLDUPLEX;
     EthHandle.Init.PhyAddress = KSZ8041NL_PHY_ADDRESS;
-    EthHandle.Init.MACAddr = gUserConfiguration.mac; //gnetif.hwaddr; 
+    EthHandle.Init.MACAddr = p_mac; //gnetif.hwaddr; 
     EthHandle.Init.RxMode = ETH_RXINTERRUPT_MODE;
     EthHandle.Init.ChecksumMode = ETH_CHECKSUM_BY_HARDWARE;
     EthHandle.Init.MediaInterface = ETH_MEDIA_INTERFACE_RMII;
@@ -167,12 +169,12 @@ static void low_level_init(struct netif *netif)
     netif->hwaddr_len = ETHARP_HWADDR_LEN;
 
     /* set netif MAC hardware address */
-    netif->hwaddr[0] = gUserConfiguration.mac[0];
-    netif->hwaddr[1] = gUserConfiguration.mac[1];
-    netif->hwaddr[2] = gUserConfiguration.mac[2];
-    netif->hwaddr[3] = gUserConfiguration.mac[3];
-    netif->hwaddr[4] = gUserConfiguration.mac[4];
-    netif->hwaddr[5] = gUserConfiguration.mac[5];
+    netif->hwaddr[0] = p_mac[0];
+    netif->hwaddr[1] = p_mac[1];
+    netif->hwaddr[2] = p_mac[2];
+    netif->hwaddr[3] = p_mac[3];
+    netif->hwaddr[4] = p_mac[4];
+    netif->hwaddr[5] = p_mac[5];
 
     netif->mtu = 1500;
 

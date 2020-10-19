@@ -360,8 +360,10 @@ limitations under the License.
 #define USER_SPI_NSS_PIN                    GPIO_PIN_6
 #define USER_SPI_NSS_PORT                   GPIOF
 #define USER_SPI_NSS_GPIO_CLK_ENABLE()      __HAL_RCC_GPIOF_CLK_ENABLE()
+
+
 #define USER_SPI_NSS_RX_IRQn                EXTI9_5_IRQn
-#define USER_SPI_NSS_RX_IRQ                 EXTI9_5_IRQHandler
+// #define USER_SPI_NSS_RX_IRQ                 EXTI9_5_IRQHandler
 
 /// DRDY
 #define USER_SPI_DRDY_PIN                   GPIO_PIN_12
@@ -386,33 +388,41 @@ limitations under the License.
  *  PC9      CAN_AB     
  *  PC8      CAN_120R_CTL
  */
-#define CAR_CAN                             CAN1
-#define CAR_CAN_CLK_ENABLE()                __HAL_RCC_CAN1_CLK_ENABLE()
+#define USER_CAN                             CAN1
+#define USER_CAN_CLK_ENABLE()                __HAL_RCC_CAN1_CLK_ENABLE()
 
 /// CAN_TX
-#define CAR_CAN_TX_PIN                      GPIO_PIN_12
-#define CAR_CAN_TX_PORT                     GPIOA
-#define CAR_CAN_TX_AF                       GPIO_AF9_CAN1
-#define CAR_CAN_TX_GPIO_CLK_ENABLE()        __HAL_RCC_GPIOA_CLK_ENABLE()
+#define USER_CAN_TX_PIN                      GPIO_PIN_12
+#define USER_CAN_TX_PORT                     GPIOA
+#define USER_CAN_TX_AF                       GPIO_AF9_CAN1
+#define USER_CAN_TX_GPIO_CLK_ENABLE()        __HAL_RCC_GPIOA_CLK_ENABLE()
 
 /// CAN_RX
-#define CAR_CAN_RX_PIN                      GPIO_PIN_11
-#define CAR_CAN_RX_PORT                     GPIOA
-#define CAR_CAN_RX_AF                       GPIO_AF9_CAN1
-#define CAR_CAN_RX_GPIO_CLK_ENABLE()        __HAL_RCC_GPIOA_CLK_ENABLE()
+#define USER_CAN_RX_PIN                      GPIO_PIN_11
+#define USER_CAN_RX_PORT                     GPIOA
+#define USER_CAN_RX_AF                       GPIO_AF9_CAN1
+#define USER_CAN_RX_GPIO_CLK_ENABLE()        __HAL_RCC_GPIOA_CLK_ENABLE()
 
 /// CAN_AB
-#define CAR_CAN_AB_PIN                      GPIO_PIN_9
-#define CAR_CAN_AB_PORT                     GPIOC
-#define CAR_CAN_AB_GPIO_CLK_ENABLE()        __HAL_RCC_GPIOC_CLK_ENABLE()
+#define USER_CAN_AB_PIN                      GPIO_PIN_9
+#define USER_CAN_AB_PORT                     GPIOC
+#define USER_CAN_AB_GPIO_CLK_ENABLE()        __HAL_RCC_GPIOC_CLK_ENABLE()
 
 /// CAN_120R_CTL
-#define CAR_CAN_120R_CTL_PIN                GPIO_PIN_8
-#define CAR_CAN_120R_CTL_PORT               GPIOC
-#define CAR_CAN_120R_CTL_GPIO_CLK_ENABLE()  __HAL_RCC_GPIOC_CLK_ENABLE()
+#define USER_CAN_120R_CTL_PIN                GPIO_PIN_8
+#define USER_CAN_120R_CTL_PORT               GPIOC
+#define USER_CAN_120R_CTL_GPIO_CLK_ENABLE()  __HAL_RCC_GPIOC_CLK_ENABLE()
 
-#define CAR_CAN_RX_IRQn                     CAN1_RX0_IRQn
-#define CAR_CAN_RX_IRQ                      CAN1_RX0_IRQHandler
+#define USER_CAN_PORT_RCC_CLK_ENABLE()       {__HAL_RCC_GPIOA_CLK_ENABLE();  \
+                                            __HAL_RCC_GPIOC_CLK_ENABLE();}
+
+#define USER_CAN_FORCE_RESET()               __HAL_RCC_CAN1_FORCE_RESET()
+#define USER_CAN_RELEASE_RESET()             __HAL_RCC_CAN1_RELEASE_RESET()
+
+#define USER_CAN_RX_IRQn                     CAN1_RX0_IRQn
+#define USER_CAN_RX_IRQHandler               CAN1_RX0_IRQHandler
+#define USER_CAN_TX_IRQn                     CAN1_TX_IRQn
+#define USER_CAN_TX_IRQHandler               CAN1_TX_IRQHandler
 
 
 //================== Sensors
@@ -450,5 +460,18 @@ limitations under the License.
 #define LNA_EN_PIN                          GPIO_PIN_15
 #define LNA_EN_PORT                         GPIOA
 #define LNA_EN_CLK_ENABLE()                 __HAL_RCC_GPIOA_CLK_ENABLE()
+
+
+
+#define PLUSE_PIN                           GPIO_PIN_7
+#define PLUSE_PORT                          GPIOE
+#define FWD_GPIO_CLK_ENABLE()               __HAL_RCC_GPIOE_CLK_ENABLE()
+#define FWD_PIN                             GPIO_PIN_8
+#define FWD_PORT                            GPIOE
+#define PLUSE_GPIO_CLK_ENABLE()             __HAL_RCC_GPIOE_CLK_ENABLE()
+
+#define PLUSE_IRQn                          EXTI9_5_IRQn
+#define SPI_PLUSE_IRQ                       EXTI9_5_IRQHandler
+
 
 #endif

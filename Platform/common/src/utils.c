@@ -4,7 +4,12 @@
 
 #include "utils.h"
 #include "nav_math.h"
+#include "main.h"
+extern void ecef2enu(const double *pos, const double *r, double *e);
+extern double norm(const double* a, int n);
 
+extern int print_rmc(gtime_t time, double *ecef,int fixID,char *buff);
+extern int print_gsv(unsigned char *buff, int fixID, sky_view_t *rov);
 
 void fifo_init(fifo_type* fifo, uint8_t* buffer, uint16_t size)
 {
@@ -250,16 +255,182 @@ int print_pos_gga(gtime_t time, double *pos, int num_of_sat, int fixID,
 {
 	double ep[6] = { 0.0 };
 	gtime_t ut;
-
+    uint8_t ret = 0;
     if (gga != NULL)
     {
         if (fixID)
         {
             ut = gpst2utc(time);
             time2epoch(ut, ep);
-            return print_nmea_gga(ep, pos, num_of_sat, fixID, hdop, age, gga);
+            ret = print_nmea_gga(ep, pos, num_of_sat, fixID, hdop, age, gga);
         }
     }
+    // print_rmc(time, pos,fixID, rmc_buff);
+    // print_gsa(buff_gsa,fixID,gRov.vec,&gGpsDataPtr->rov);
+    // print_gsv((unsigned char *)gsv_buff,fixID,sky_view_ptr);
+    nema_update_flag = 1;
+    return ret;
+}
+#define KNOT2M     0.514444444  /* m/knot */
 
-    return 0;
+extern int print_rmc(gtime_t time, double *ecef,int fixID,char *buff)
+{
+    static double dirp = 0.0;
+    gtime_t ut;
+    double ep[6],pos[3],enuv[3],dms1[3],dms2[3],vel,dir,amag=0.0;
+    char *p = buff,*q,sum,*emag = "E";
+
+    if (fixID<=0) {
+        p+=sprintf(p,"$GPRMC,,,,,,,,,,,,");
+        for (q=(char *)buff+1,sum=0;*q;q++) sum^=*q;
+        p+=sprintf(p,"*%02X%c%c",sum,0x0D,0x0A);
+        return p-(char *)buff;
+    }
+    ut=gpst2utc(time);
+    if (ut.sec>=0.995) {ut.time++; ut.sec=0.0;}
+    time2epoch(ut,ep);
+    ecef2pos(ecef,pos);
+    ecef2enu(pos,ecef+3,enuv);
+    vel=norm(enuv,3);
+    if (vel>=1.0) {
+        dir=atan2(enuv[0],enuv[1])*R2D;
+        if (dir<0.0) dir+=360.0;
+        dirp=dir;
+    }
+    else dir=dirp;
+    deg2dms(fabs(pos[0])*R2D,dms1,7);
+    deg2dms(fabs(pos[1])*R2D,dms2,7);
+    p+=sprintf(p,"$GPRMC,%02.0f%02.0f%05.2f,A,%02.0f%010.7f,%s,%03.0f%010.7f,%s,%4.2f,%4.2f,%02.0f%02.0f%02d,%.1f,%s,%s",
+               ep[3],ep[4],ep[5],dms1[0],dms1[1]+dms1[2]/60.0,pos[0]>=0?"N":"S",
+               dms2[0],dms2[1]+dms2[2]/60.0,pos[1]>=0?"E":"W",vel/KNOT2M,dir,
+               ep[2],ep[1],(int)ep[0]%100,amag,emag,
+               fixID == 4 || fixID == 5?"D":"A");
+            //    sol->stat==SOLQ_DGPS||sol->stat==SOLQ_FLOAT||sol->stat==SOLQ_FIX?"D":"A");
+    for (q=(char *)buff+1,sum=0;*q;q++) sum^=*q; /* check-sum */
+    p+=sprintf(p,"*%02X%c%c",sum,0x0D,0x0A);
+    return p-(char *)buff;
+}
+/* output solution in the form of nmea GSV sentence --------------------------*/
+extern int print_gsv(unsigned char *buff, int fixID, sky_view_t *rov)
+{
+    double az,el,snr;
+    int i,j,k,n,sat,prn,sys,nmsg,sats[MAXSAT];
+    char *p=(char *)buff,*q,*s,sum;
+        
+    if (fixID<=0) {
+        p+=sprintf(p,"$GPGSV,1,1,0,,,,,,,,,,,,,,,,");
+        for (q=(char *)buff+1,sum=0;*q;q++) sum^=*q;
+        p+=sprintf(p,"*%02X%c%c",sum,0x0D,0x0A);
+        return p-(char *)buff;
+    }
+    /* GPGSV: gps/sbas */
+    for (i=0,n=0;i<rov->rov_n&&n<12;i++) {
+        sat = rov->rov_satellite[i].satelliteId;
+        sys=satsys(sat,&prn);
+        if (sys!=_SYS_GPS_&&sys!=_SYS_SBS_) continue;
+        if (rov->rov_satellite[i].elevation > 0.0) sats[n++]=i;
+    }
+    nmsg=n<=0?0:(n-1)/4+1;
+    
+    for (i=k=0;i<nmsg;i++) {
+        s=p;
+        p+=sprintf(p,"$GPGSV,%d,%d,%02d",nmsg,i+1,n);
+        
+        for (j=0;j<4;j++,k++) {
+            if (k<n) {
+                if (satsys(sats[k],&prn)==_SYS_SBS_) prn+=33-MINPRNSBS;
+                az = rov->rov_satellite[sats[k]].azimuth; if (az<0.0) az+=360.0;
+                el =rov->rov_satellite[sats[k]].elevation;
+                snr = rov->rov_satellite[sats[k]].snr;
+                p+=sprintf(p,",%02d,%02.0f,%03.0f,%02.0f",prn,el,az,snr);
+            }
+            else p+=sprintf(p,",,,,");
+        }
+        p+=sprintf(p,",1"); /* L1C/A */
+        for (q=s+1,sum=0;*q;q++) sum^=*q; /* check-sum */
+        p+=sprintf(p,"*%02X%c%c",sum,0x0D,0x0A);
+    }
+    /* GLGSV: glonass */
+    for (i=0,n=0;i<rov->rov_n&&n<12;i++) {
+        sat = rov->rov_satellite[i].satelliteId;
+        sys=satsys(sat,&prn);
+        if (sys!=_SYS_GLO_) continue;
+        if (rov->rov_satellite[i].elevation > 0.0) sats[n++]=i;
+    }    
+    nmsg=n<=0?0:(n-1)/4+1;
+    
+    for (i=k=0;i<nmsg;i++) {
+        s=p;
+        p+=sprintf(p,"$GLGSV,%d,%d,%02d",nmsg,i+1,n);
+        
+        for (j=0;j<4;j++,k++) {
+            if (k<n) {
+                satsys(sats[k],&prn); prn+=64; /* 65-99 */
+                az = rov->rov_satellite[sats[k]].azimuth; if (az<0.0) az+=360.0;
+                el =rov->rov_satellite[sats[k]].elevation;
+                snr = rov->rov_satellite[sats[k]].snr;
+                p+=sprintf(p,",%02d,%02.0f,%03.0f,%02.0f",prn,el,az,snr);
+            }
+            else p+=sprintf(p,",,,,");
+        }
+        p+=sprintf(p,",1"); /* L1C/A */
+        for (q=s+1,sum=0;*q;q++) sum^=*q; /* check-sum */
+        p+=sprintf(p,"*%02X%c%c",sum,0x0D,0x0A);
+    }
+    /* GAGSV: galileo */
+    for (i=0,n=0;i<rov->rov_n&&n<12;i++) {
+        sat = rov->rov_satellite[i].satelliteId;
+        sys=satsys(sat,&prn);
+        if (sys!=_SYS_GAL_) continue;
+        if (rov->rov_satellite[i].elevation > 0.0) sats[n++]=i;
+    }       
+    nmsg=n<=0?0:(n-1)/4+1;
+    
+    for (i=k=0;i<nmsg;i++) {
+        s=p;
+        p+=sprintf(p,"$GAGSV,%d,%d,%02d",nmsg,i+1,n);
+        
+        for (j=0;j<4;j++,k++) {
+            if (k<n) {
+                satsys(sats[k],&prn); /* 1-36 */
+                az = rov->rov_satellite[sats[k]].azimuth; if (az<0.0) az+=360.0;
+                el =rov->rov_satellite[sats[k]].elevation;
+                snr = rov->rov_satellite[sats[k]].snr;
+                p+=sprintf(p,",%02d,%02.0f,%03.0f,%02.0f",prn,el,az,snr);
+            }
+            else p+=sprintf(p,",,,,");
+        }
+        p+=sprintf(p,",7"); /* L1BC */
+        for (q=s+1,sum=0;*q;q++) sum^=*q; /* check-sum */
+        p+=sprintf(p,"*%02X%c%c",sum,0x0D,0x0A);
+    }
+    /* BDGSV: Beidou */
+    for (i=0,n=0;i<rov->rov_n&&n<12;i++) {
+        sat = rov->rov_satellite[i].satelliteId;
+        sys=satsys(sat,&prn);
+        if (sys!=_SYS_BDS_) continue;
+        if (rov->rov_satellite[i].elevation > 0.0) sats[n++]=i;
+    }       
+    nmsg=n<=0?0:(n-1)/4+1;
+    
+    for (i=k=0;i<nmsg;i++) {
+        s=p;
+        p+=sprintf(p,"$BDGSV,%d,%d,%02d",nmsg,i+1,n);
+        
+        for (j=0;j<4;j++,k++) {
+            if (k<n) {
+                satsys(sats[k],&prn); /* 1-36 */
+                az = rov->rov_satellite[sats[k]].azimuth; if (az<0.0) az+=360.0;
+                el =rov->rov_satellite[sats[k]].elevation;
+                snr = rov->rov_satellite[sats[k]].snr;        
+                p+=sprintf(p,",%02d,%02.0f,%03.0f,%02.0f",prn,el,az,snr);
+            }
+            else p+=sprintf(p,",,,,");
+        }
+        p+=sprintf(p,",7"); /* L1BC */
+        for (q=s+1,sum=0;*q;q++) sum^=*q; /* check-sum */
+        p+=sprintf(p,"*%02X%c%c",sum,0x0D,0x0A);
+    }
+
+    return p-(char *)buff;
 }
