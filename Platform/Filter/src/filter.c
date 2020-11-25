@@ -19,7 +19,6 @@
 #include "sensorsAPI.h"
 #include "Indices.h"
 #include "filter.h"
-#include "xbowsp_algorithm.h"
 
 // Butterworth (IIR) low-pass filter coefficients Q27
 // 200 Hz Sampling

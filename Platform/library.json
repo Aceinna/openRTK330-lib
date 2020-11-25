@@ -5,7 +5,7 @@
  	"build": {
  		"flags": [
 			"-I .",
-			"-I Core/include",
+			"-I CAN/include",
 			"-I Board/include",
             "-I Filter/include",
 			"-I BT/include",

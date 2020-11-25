@@ -26,7 +26,10 @@ limitations under the License.
 
 #ifndef _PLATFORM_API_H
 #define _PLATFORM_API_H
+
+
 #include <stdint.h>
+
 #include "constants.h"
 
 BOOL eepromLocked(void);
@@ -58,12 +61,11 @@ int  platformGetSensToPpsDelay();
 int  platformGetPpsToDrdyDelay();
 uint64_t platformGetCurrTimeStamp();
 uint64_t platformGetDacqTimeStamp(); 
-void     platformPerformSelfTest();
-void     platformSetDacqTimeStamp(uint64_t tstamp); 
-int      platformEnableExtSync(BOOL enable);
-void     platformUpdateInterfaceTestStatus(BOOL fGood);
-void     platformSetMode(BOOL isBoot);
-BOOL     platformIsInBootMode();
+void platformPerformSelfTest();
+void platformSetDacqTimeStamp(uint64_t tstamp); 
+int platformEnableExtSync(BOOL enable);
+void platformSetMode(BOOL isBoot);
+BOOL platformIsInBootMode();
 
 
 #endif

@@ -37,7 +37,6 @@
 			"-I mbedTLS/",
 
 			"-I Platform/",
-			"-I Platform/core/include",
 			"-I Platform/board/include",
 			"-I Platform/filter/include",
 			"-I Platform/driver/include",
@@ -45,7 +44,10 @@
 			"-I Platform/gnss_data/include",
             "-I Platform/common/include",
             "-I Platform/can/include",
-			"-I Platform/bt/include",
+			"-I Platform/bluetooth/include",
+			"-I Platform/crc/include",
+			"-I Platform/serial/include",
+			"-I Platform/config/include",
 			"-I FreeRTOS/include",
 			"-I FreeRTOS/",
 
