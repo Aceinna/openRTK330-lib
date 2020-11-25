@@ -70,12 +70,8 @@ static void send_rtk_json_to_esp32(void)
     cJSON_AddItemToObject(fmt, "Version", cJSON_CreateString(APP_VERSION_STRING));
     cJSON_AddItemToObject(fmt, "Compile Time", cJSON_CreateString(compile_time));
 
-    uint8_t *user_packet_type = get_user_packet_type();
-    char packet_type_str[5] = {0};
-    packet_type_str[0] = user_packet_type[0];
-    packet_type_str[1] = user_packet_type[1];
-
-    uint16_t user_packet_rate = get_user_packet_rate();
+    char packet_type_str[5] = "s1";
+    uint16_t user_packet_rate = 100;
 
     cJSON_AddItemToObject(fmt, "userPacketType", cJSON_CreateString(packet_type_str));
     cJSON_AddItemToObject(fmt, "userPacketRate", cJSON_CreateNumber(user_packet_rate));
@@ -84,12 +80,12 @@ static void send_rtk_json_to_esp32(void)
     cJSON_AddItemToObject(fmt, "leverArmBx", cJSON_CreateNumber(*ins_para));
     cJSON_AddItemToObject(fmt, "leverArmBy", cJSON_CreateNumber(*(ins_para + 1)));
     cJSON_AddItemToObject(fmt, "leverArmBz", cJSON_CreateNumber(*(ins_para + 2)));
-    cJSON_AddItemToObject(fmt, "pointOfInterestBx", cJSON_CreateNumber(*(ins_para + 3)));
-    cJSON_AddItemToObject(fmt, "pointOfInterestBy", cJSON_CreateNumber(*(ins_para + 4)));
-    cJSON_AddItemToObject(fmt, "pointOfInterestBz", cJSON_CreateNumber(*(ins_para + 5)));
-    cJSON_AddItemToObject(fmt, "rotationRbvx", cJSON_CreateNumber(*(ins_para + 6)));
-    cJSON_AddItemToObject(fmt, "rotationRbvy", cJSON_CreateNumber(*(ins_para + 7)));
-    cJSON_AddItemToObject(fmt, "rotationRbvz", cJSON_CreateNumber(*(ins_para + 8)));
+    cJSON_AddItemToObject(fmt, "pointOfInterestBx", cJSON_CreateNumber(*(ins_para + 6)));
+    cJSON_AddItemToObject(fmt, "pointOfInterestBy", cJSON_CreateNumber(*(ins_para + 7)));
+    cJSON_AddItemToObject(fmt, "pointOfInterestBz", cJSON_CreateNumber(*(ins_para + 8)));
+    cJSON_AddItemToObject(fmt, "rotationRbvx", cJSON_CreateNumber(*(ins_para + 9)));
+    cJSON_AddItemToObject(fmt, "rotationRbvy", cJSON_CreateNumber(*(ins_para + 10)));
+    cJSON_AddItemToObject(fmt, "rotationRbvz", cJSON_CreateNumber(*(ins_para + 11)));
 
     out = cJSON_Print(root);
     cJSON_Delete(root);
@@ -125,21 +121,12 @@ static void bt_app_json_parse(cJSON* root)
         && pointOfInterestBx != NULL && pointOfInterestBy != NULL && pointOfInterestBz != NULL
         && rotationRbvx != NULL && rotationRbvy != NULL && rotationRbvz != NULL){
 
-        result = valid_user_config_parameter(USER_USER_PACKET_TYPE, (uint8_t*)packetCode->valuestring);
-        if (result){
-            set_user_packet_type((uint8_t*)packetCode->valuestring);
-        }
-        result = valid_user_config_parameter(USER_USER_PACKET_RATE, (uint8_t*)&packetRate->valueint);
-        if (result){
-            set_user_packet_rate(packetRate->valueint);
-        }
-
-        set_lever_arm_bx(leverArmBx->valuedouble);
-        set_lever_arm_by(leverArmBy->valuedouble);
-        set_lever_arm_bz(leverArmBz->valuedouble);
-        set_point_of_interest_bx(pointOfInterestBx->valuedouble);
-        set_point_of_interest_by(pointOfInterestBy->valuedouble);
-        set_point_of_interest_bz(pointOfInterestBz->valuedouble);
+        set_pri_lever_arm_bx(leverArmBx->valuedouble);
+        set_pri_lever_arm_by(leverArmBy->valuedouble);
+        set_pri_lever_arm_bz(leverArmBz->valuedouble);
+        set_user_lever_arm_bx(pointOfInterestBx->valuedouble);
+        set_user_lever_arm_by(pointOfInterestBy->valuedouble);
+        set_user_lever_arm_bz(pointOfInterestBz->valuedouble);
         set_rotation_rbvx(rotationRbvx->valuedouble);
         set_rotation_rbvy(rotationRbvy->valuedouble);
         set_rotation_rbvz(rotationRbvz->valuedouble);

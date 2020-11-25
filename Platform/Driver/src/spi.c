@@ -13,7 +13,6 @@
 #include "string.h"
 #include "user_config.h"
 #include "exit.h"
-// #include "insoutmsg.h"
 
 SPI_HandleTypeDef hspi5;
 DMA_HandleTypeDef hdma_spi5_rx;
@@ -227,12 +226,12 @@ void SPI_IRQ()
     HAL_GPIO_EXTI_IRQHandler(USER_SPI_NSS_PIN);
 }
 
-void SPI_PLUSE_IRQ()
+void SPI_PULSE_IRQ()
 {
     int wheeltick_pin_mode = get_wheeltick_pin_mode();
     if(wheeltick_pin_mode == 0)
     {
-        PLUSE_IRQ();
+        PULSE_IRQ();
     }   
     else if(wheeltick_pin_mode == 1)
     {

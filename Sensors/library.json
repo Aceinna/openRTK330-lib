@@ -4,8 +4,7 @@
  	"description": "OpenIMU330 sensors and storage library",
  	"build": {
  		"flags": [
-			"-I Core",
-			"-I Core/include",
+
 			"-I ."
  		],
 		"libArchive": true,

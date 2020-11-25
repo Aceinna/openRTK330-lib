@@ -19,9 +19,9 @@
 
 // supported baud rate
 typedef enum {
-  _ECU_500K      =    0,                    // 500kbps
+  _ECU_125K      =    0,                    // 125kbps
   _ECU_250K      =    1,                    // 250kbps
-  _ECU_125K      =    2,                    // 125kbps
+  _ECU_500K      =    2,                    // 500kbps
   _ECU_1000K     =    3                     // 1000kbps
 } _ECU_BAUD_RATE;
 
@@ -42,7 +42,6 @@ enum {
   CAN_PACKET_RATE_25          =           25,  // 25Hz
   CAN_PACKET_RATE_50          =           50,  // 50Hz
   CAN_PACKET_RATE_100         =           100, // 100Hz
-  CAN_PACKET_RATE_200         =           200  // 200Hz
 };
 
 typedef struct

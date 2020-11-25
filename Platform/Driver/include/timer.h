@@ -25,8 +25,6 @@ typedef struct mcu_time_base_t_
 } mcu_time_base_t;
 
 extern volatile mcu_time_base_t g_MCU_time;
-extern mcu_time_base_t imu_time;
-extern volatile mcu_time_base_t next_obs_time;
 
 void MX_TIM1_Init(void);
 void MX_TIM_SENSOR_Init(void);

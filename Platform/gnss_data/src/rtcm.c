@@ -4916,7 +4916,7 @@ void fill_base_data(rtcm_t *rtcm,int rtcm_len)
     double gga_time = get_gnss_time();
     //  sizeof(",%02x\r\n") 5 sizeof(',') 1
     uint32_t data_len = rtcm_len + 5*sizeof(char) + 1*sizeof(char); 
-    int head_len = sprintf(( char*)base_data_buf,"$GPREF,%6.2f,%04u,",gga_time,data_len);
+    int head_len = sprintf(( char*)base_data_buf,"$GPREF,%6.2f,%04lu,", gga_time, data_len);
     memcpy(base_data_buf + strlen(( char*)base_data_buf),rtcm->buff,rtcm_len);
     int all_bytes_to_sum = head_len + rtcm_len;
     char sum = 0;
@@ -4931,7 +4931,7 @@ void fill_base_data(rtcm_t *rtcm,int rtcm_len)
     if(get_tcp_data_driver_state() == CLIENT_STATE_INTERACTIVE)
     {
         //driver_data_push((char*)base_data_buf,head_len + rtcm_len + end_len);
-        client_write_data(&driver_data_client,(char*)base_data_buf,head_len + rtcm_len + end_len,0x01);
+        client_write_data(&driver_data_client, (const uint8_t *)base_data_buf,head_len + rtcm_len + end_len,0x01);
     }
 }
 

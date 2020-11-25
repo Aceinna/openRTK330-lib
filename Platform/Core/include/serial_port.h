@@ -34,5 +34,6 @@ limitations under the License.
 
 extern BOOL     HandleUcbRx (UcbPacketStruct *ptrUcbPacket);
 extern void     HandleUcbTx (int port, UcbPacketStruct *ptrUcbPacket);
+extern void     reset_user_packet_divide(void);
 
 #endif

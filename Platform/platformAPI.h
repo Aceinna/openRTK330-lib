@@ -42,7 +42,7 @@ extern char *unitVersionString(void);
 extern uint32_t unitSerialNumber(void);
 extern uint8_t  unitSpiSwVersion(void);
 extern char *platformBuildInfo(void);
-void            platormReset();
+void platormReset();
 BOOL platformCanBaudRateDetectEnabled();
 BOOL platformCanTermResistorEnabled();
 void markEEPROMUnlocked();

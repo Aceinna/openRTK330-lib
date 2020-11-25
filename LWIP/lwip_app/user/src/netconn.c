@@ -1,5 +1,3 @@
-#ifdef BASE_STATION
-
 #include "netconn.h"
 #include "string.h"
 
@@ -145,5 +143,3 @@ uint8_t netconn_is_interactive(NETCONN_STATE *state)
 {
     return (*state == NETCONN_STATE_INTERACTIVE);
 }
-
-#endif

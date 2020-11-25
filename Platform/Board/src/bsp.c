@@ -331,7 +331,7 @@ void BSP_ESP32_Interface_Gpio_Init(void)
 void esp32_reset()
 {
     HAL_GPIO_WritePin(GPIOF,BT_RESET_PIN,GPIO_PIN_RESET);
-    delay_ms(100);
+    DelayMs(100);
     HAL_GPIO_WritePin(BT_RESET_GPIO_PORT, BT_RESET_PIN,GPIO_PIN_SET);
 }
 
@@ -353,7 +353,7 @@ void set_esp32_to_boot_mode(void)    //TODO:
     HAL_GPIO_Init(BT_USART_TX_GPIO_PORT, &GPIO_InitStruct);
 
     HAL_GPIO_WritePin(GPIOF,BT_BOOT_CTL_PIN|BT_RESET_PIN,GPIO_PIN_RESET);  //reset 0v   boot 0v
-    delay_ms(2000);
+    DelayMs(2000);
     HAL_GPIO_WritePin(BT_RESET_GPIO_PORT, BT_RESET_PIN,GPIO_PIN_SET);      //reset 3.3v boot3.3v
 }
 /** ****************************************************************************
@@ -717,19 +717,6 @@ void HW_BootJump(uint32_t addr)
     asm("LDR PC, [R0, #4]");
 }
 
-void delay_ms(uint32_t time)
-{    
-   uint32_t i=0;  
-   while(time--)
-   {
-      i = 18000;  //Լ1ms
-      while(i--)
-      {
-        asm("nop");
-      }
-   }
-}
-
 void DelayMs(uint32_t msec)
 {
     uint32_t i = 0;  
@@ -828,14 +815,14 @@ void SCK_OFF(void)
 }
 
 
-void pluse_detect_init(void)
+void wt_pulse_detect_init(void)
 {
-    PLUSE_GPIO_CLK_ENABLE();
+    PUlSE_GPIO_CLK_ENABLE();
     GPIO_InitTypeDef GPIO_InitStruct;
-    GPIO_InitStruct.Pin = PLUSE_PIN;
+    GPIO_InitStruct.Pin = PULSE_PIN;
     GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
     GPIO_InitStruct.Pull = GPIO_PULLUP;
-    HAL_GPIO_Init(PLUSE_PORT, &GPIO_InitStruct);
+    HAL_GPIO_Init(PULSE_PORT, &GPIO_InitStruct);
 
     FWD_GPIO_CLK_ENABLE();
     GPIO_InitStruct.Pin = FWD_PIN;
@@ -844,6 +831,6 @@ void pluse_detect_init(void)
     HAL_GPIO_Init(FWD_PORT, &GPIO_InitStruct);
 
     /* EXTI interrupt init*/
-    HAL_NVIC_SetPriority(PLUSE_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(PLUSE_IRQn);
+    HAL_NVIC_SetPriority(PUlSE_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(PUlSE_IRQn);
 }

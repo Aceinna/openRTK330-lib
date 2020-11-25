@@ -1,5 +1,5 @@
 /** ***************************************************************************
- * @file bsp.h Board Support package, configure the Cortex M3
+ * @file bsp.h Board Support package, configure the Cortex M4
  *
  * THIS CODE AND INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY
  * KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
@@ -86,8 +86,7 @@ void    ResetForEnterBootMode(void);
 
 
 //================== common functions
-void    delay_ms(uint32_t time);
-void    DelayMs(uint32_t msec);
+void DelayMs(uint32_t msec);
 
 void BSP_Spi_Pins_For_Test(void);
 void DRDY_Toggle(void);
@@ -108,6 +107,6 @@ void DRDY_OFF(void);
 
 void esp32_reset();
 
-void pluse_detect_init(void);
+void wt_pulse_detect_init(void);
 #endif /* CONF_GPIO_H */
 

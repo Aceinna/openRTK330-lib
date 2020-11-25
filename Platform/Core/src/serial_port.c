@@ -44,23 +44,11 @@ typedef struct{
 /// List of allowed input packet codes
 ucbInputSyncTableEntry_t ucbInputSyncTable[] = {
     {UCB_PING,              0x504B},    //  "PK"
-    {UCB_ECHO,              0x4348},    //  "CH"
-    {UCB_GET_PACKET,        0x4750},    //  "GP"
-    {UCB_SET_FIELDS,        0x5346},    //  "SF"
-    {UCB_GET_FIELDS,        0x4746},    //  "GF"
-    {UCB_READ_FIELDS,       0x5246},    //  "RF"
-    {UCB_WRITE_FIELDS,      0x5746},    //  "WF"
-    {UCB_UNLOCK_EEPROM,     0x5545},    //  "UE"
-    {UCB_READ_EEPROM,       0x5245},    //  "RE"
-    {UCB_WRITE_EEPROM,      0x5745},    //  "WE"
     {UCB_SOFTWARE_RESET,    0x5352},    //  "SR"
-    {UCB_WRITE_CAL,         0x5743},    //  "WC"
-    {UCB_READ_CAL,          0x5243},    //  "RC"
     {UCB_WRITE_APP,         0x5741},    //  "WA"
     {UCB_J2BOOT,            0x4A42},    //  "JB"
     {UCB_J2IAP,             0x4A49},    //  "JI"
     {UCB_J2APP,             0x4A41},    //  "JA"
-    {UCB_HARDWARE_TEST,     0x4854},    //  "HT"
     {UCB_INPUT_PACKET_MAX,  0x00000000},    //  "  "
 };
 
@@ -87,15 +75,14 @@ extern client_s driver_client;
 
 BOOL HandleUcbRx (UcbPacketStruct  *ucbPacket)
 {
-    static int bytesInBuffer = 0, state = 0, crcError = 0, len = 0;
+    static int state = 0, crcError = 0, len = 0;
     static uint8_t *ptr;
     static uint16_t crcMsg = 0, code;
 	static uint32_t sync = 0;
     unsigned char tmp;
 	unsigned int  pos = 0, synced = 0, type;
-	uint16_t crcCalc;
+	uint16_t crcCalc, bytesInBuffer = 0;
     ucbInputSyncTableEntry_t *syncTable;
-	
     
 	while(1){
         if(!bytesInBuffer){
@@ -130,7 +117,7 @@ BOOL HandleUcbRx (UcbPacketStruct  *ucbPacket)
                 syncTable++;
             }
             if(!synced){
-                type = checkUserPacketType(code);
+                type = checkUserInPacketType(code);
                 if(type != UCB_ERROR_INVALID_TYPE){
                     synced = 1;
                 }
@@ -221,7 +208,7 @@ void HandleUcbTx (int port, UcbPacketStruct *ptrUcbPacket)
     ptrUcbPacket->sync_MSB = 0x55;
 	ptrUcbPacket->sync_LSB = 0x55;
 
-	ret = UcbPacketPacketTypeToBytes(ptrUcbPacket->packetType, data);
+	ret = ucbpacket_type_to_bytes(ptrUcbPacket->packetType, data);
     if (ret) {
         ptrUcbPacket->code_MSB = data[0];
 	    ptrUcbPacket->code_LSB = data[1];
@@ -238,7 +225,7 @@ void HandleUcbTx (int port, UcbPacketStruct *ptrUcbPacket)
     ptrUcbPacket->payload[ptrUcbPacket->payloadLength]     =  crc  & 0xff;
     if(get_tcp_driver_state() == CLIENT_STATE_INTERACTIVE)
     {
-        client_write_data(&driver_client,(const char *)&ptrUcbPacket->sync_MSB, ptrUcbPacket->payloadLength + 7,  0x01);
+        client_write_data(&driver_client, &ptrUcbPacket->sync_MSB, ptrUcbPacket->payloadLength + 7,  0x01);
     }
     uart_write_bytes(port, (const char *)&ptrUcbPacket->sync_MSB, ptrUcbPacket->payloadLength + 7,1);
 }

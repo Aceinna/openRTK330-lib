@@ -320,10 +320,15 @@ static void uart_isr_if(uart_port_e uart_num)
     }
     if (RESET != __HAL_UART_GET_FLAG(p_uart_obj[uart_num]->huart, UART_FLAG_FE))
     {
-        uart_dma_stop(uart_num);
-        uart_receive_dma(uart_num);       //TODO:
-        uart_rx_dma_enable(uart_num);
-        uart_dma_enanle_it(uart_num,UART_IT_IDLE);
+        __HAL_UART_CLEAR_FEFLAG(p_uart_obj[uart_num]->huart);
+        // uart_dma_stop(uart_num);
+        // uart_receive_dma(uart_num);       //TODO:
+        // uart_rx_dma_enable(uart_num);
+        // uart_dma_enanle_it(uart_num,UART_IT_IDLE);
+    }
+    if (RESET != __HAL_UART_GET_FLAG(p_uart_obj[uart_num]->huart, UART_FLAG_NE))
+    {               
+        __HAL_UART_CLEAR_NEFLAG(p_uart_obj[uart_num]->huart);
     }
 #if 1
     if (RESET != __HAL_UART_GET_FLAG(p_uart_obj[uart_num]->huart, UART_FLAG_ORE))
@@ -393,6 +398,14 @@ static void uart_dma_tx_isr_if(uart_port_e uart_num)
         p_uart_obj[uart_num]->huart->gState = HAL_UART_STATE_READY;
     }
     HAL_DMA_IRQHandler(p_uart_obj[uart_num]->hdma_usart_tx);
+
+    if(p_uart_obj[UART_USER]->huart->gState == HAL_UART_STATE_READY)
+    {
+        int data_len = fifo_get(&user_uart_dma_tx_fifo.uart_tx_fifo,data_to_write,DMA_TX_FIFO_BUF_SIZE);
+        user_uart_dma_tx_fifo.frame_num = 0;
+        user_uart_dma_tx_fifo.data_total_num = 0;
+        HAL_UART_Transmit_DMA(p_uart_obj[UART_USER]->huart, data_to_write, data_len);
+    }
 }
 
 void USER_USART_DMA_TX_IRQHandler(void)

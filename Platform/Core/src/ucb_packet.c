@@ -35,36 +35,18 @@ limitations under the License.
 ucb_packet_t ucbPackets[] = {		//       
     {UCB_J2IAP,              0x4A49},   //  "JI"
     {UCB_PING,               0x504B},   //  "PK" 
-    {UCB_ECHO,               0x4348},   //  "CH" 
-    {UCB_GET_PACKET,         0x4750},   //  "GP" 
-    {UCB_SET_FIELDS,         0x5346},   //  "SF" 
-    {UCB_GET_FIELDS,         0x4746},   //  "GF" 
-    {UCB_READ_FIELDS,        0x5246},   //  "RF" 
-    {UCB_WRITE_FIELDS,       0x5746},   //  "WF" 
-    {UCB_UNLOCK_EEPROM,      0x5545},   //  "UE" 
-    {UCB_READ_EEPROM,        0x5245},   //  "RE" 
-    {UCB_WRITE_EEPROM,       0x5745},   //  "WE" 
     {UCB_SOFTWARE_RESET,     0x5352},   //  "SR"
     {UCB_WRITE_APP,          0x5741},   //  "WA"
-    {UCB_WRITE_CAL,          0x5743},   //  "WC" 
     {UCB_IDENTIFICATION,     0x4944},   //  "ID" 
     {UCB_VERSION_DATA,       0x5652},   //  "VR" 
     {UCB_VERSION_ALL_DATA,   0x5641},   //  "VA" 
-    {UCB_SCALED_0,           0x5330},   //  "S0" 
-    {UCB_SCALED_1,           0x5331},   //  "S1" 
-    {UCB_SCALED_M,           0x534D},   //  "SM"
-    {UCB_TEST_0,             0x5430},   //  "T0" 
-    {UCB_FACTORY_1,          0x4631},   //  "F1" 
-    {UCB_FACTORY_2,          0x4632},   //  "F2"
-    {UCB_FACTORY_M,          0x464D},   //  "FM"
-    {UCB_USER_OUT,           0x5550},   //  "UP" 
     {UCB_PKT_NONE,           0x0000}   //  "  "     should be last in the table as a end marker 
 };
 
 
 
 /** ****************************************************************************
- * @name UcbPacketBytesToPacketType
+ * @name ucbpacket_bytes_to_type
  * @brief Convert the packet bytes into the packet type enum eg "PK" -> 0x504B
  * Trace:
  * [SDD_UCB_UNKNOWN_01 <-- SRC_UCB_PKT_ENUM]
@@ -73,32 +55,30 @@ ucb_packet_t ucbPackets[] = {		//
  * @param [in] byte array, containing one byte
  * @Retval packet type enum
  ******************************************************************************/
-UcbPacketType UcbPacketBytesToPacketType (const uint8_t bytes [])
+UcbPacketType ucbpacket_bytes_to_type(const uint8_t bytes[])
 {
-	UcbPacketType packetType = UCB_ERROR_INVALID_TYPE;
-    ucb_packet_t *pkt = ucbPackets; 
-	uint16_t receivedCode = (uint16_t)(((bytes[0] & 0xff) << 8) |
-                                                          (bytes[1] & 0xff));
+    UcbPacketType packetType = UCB_ERROR_INVALID_TYPE;
+    ucb_packet_t *pkt = ucbPackets;
+    uint16_t receivedCode = (uint16_t)(((bytes[0] & 0xff) << 8) | (bytes[1] & 0xff));
 
     /// search through the packet code table for a matching code - check type
     /// against valid types
 
-	while (pkt->packetType != UCB_PKT_NONE) {
-        if ( receivedCode == pkt->packetCode ) {
+    while (pkt->packetType != UCB_PKT_NONE) {
+        if (receivedCode == pkt->packetCode) {
             packetType = pkt->packetType;
             break;
         }
         pkt++;
-	}
-    
-#ifndef USER_PACKETS_NOT_SUPPORTED
-    if(packetType == UCB_ERROR_INVALID_TYPE){
-        packetType = (UcbPacketType)checkUserPacketType(receivedCode);
     }
-#endif
-	return packetType;
+
+    if (packetType == UCB_ERROR_INVALID_TYPE) {
+        packetType = (UcbPacketType)checkUserOutPacketType(receivedCode);
+    }
+
+    return packetType;
 }
-/* end UcbPacketBytesToPacketType */
+/* end ucbpacket_bytes_to_type */
 
 /******************************************************************************
  * Function name:	UcbPacketTypeToBytes
@@ -109,77 +89,32 @@ UcbPacketType UcbPacketBytesToPacketType (const uint8_t bytes [])
  * @param [in] byte array, containing one byte
  * @Retval length
  ******************************************************************************/
-BOOL UcbPacketPacketTypeToBytes (UcbPacketType type,
-                                 uint8_t       bytes [])
+BOOL ucbpacket_type_to_bytes(UcbPacketType type, uint8_t bytes[])
 {
     ucb_packet_t *ptr = ucbPackets;
-// carefull here, since for sake of speed it's indexing but not lookup through ucbPackets structure  
+    // carefull here, since for sake of speed it's indexing but not lookup
+    // through ucbPackets structure
 
-#ifndef USER_PACKETS_NOT_SUPPORTED
-    if(type == UCB_USER_OUT){
-        userPacketTypeToBytes(bytes);
+    if (type == UCB_USER_IN) {
+        user_inpacket_type_to_bytes(bytes);
         return TRUE;
     }
-#endif
-    
-    while(ptr->packetType != UCB_PKT_NONE){
-        if(ptr->packetType == type){
+
+    while (ptr->packetType != UCB_PKT_NONE) {
+        if (ptr->packetType == type) {
             bytes[0] = (uint8_t)((ptr->packetCode >> 8) & 0xff);
             bytes[1] = (uint8_t)(ptr->packetCode & 0xff);
             return TRUE;
         }
         ptr++;
     }
-    
-	bytes[0] = 0;
-	bytes[1] = 0;
+
+    bytes[0] = 0;
+    bytes[1] = 0;
 
     return FALSE;
 }
-/* end UcbPacketPacketTypeToBytes */
-
-
-/** ****************************************************************************
- * @name UcbPacketIsAnInputPacket
- * @brief Returns TRUE if given packet type is an input packet type
- * Trace:
- * [SDD_UCB_UNKNOWN_01 <-- SRC_UCB_PKT_INTYPE]
- * [SDD_UCB_UNKNOWN_02 <-- SRC_UCB_PKT_INTYPE]
- * [SDD_UCB_VALID_PACKET <-- SRC_UCB_PKT_INTYPE]
- * @parame [in]	UCB packet type enum
- * @retval TRUE if output packet type, FALSE otherwise
- ******************************************************************************/
-BOOL UcbPacketIsAnInputPacket (UcbPacketType type)
-{
-	BOOL isAnInputPacket;
-
-	switch (type) {
-        case UCB_PING:
-        case UCB_ECHO:
-        case UCB_GET_PACKET:
-        case UCB_SET_FIELDS:
-        case UCB_GET_FIELDS:
-        case UCB_READ_FIELDS:
-        case UCB_WRITE_FIELDS:
-        case UCB_UNLOCK_EEPROM:
-        case UCB_READ_EEPROM:
-        case UCB_WRITE_EEPROM:
-        case UCB_SOFTWARE_RESET:
-        case UCB_WRITE_APP:
-        case UCB_WRITE_CAL:
-            isAnInputPacket = TRUE;
-            break;
-		default:
-          isAnInputPacket = FALSE;
-	}
-
-    if((int)type == UCB_USER_IN){
-          isAnInputPacket = TRUE;
-    }
-
-	return isAnInputPacket;
-}
-/* end UcbPacketIsAnInputPacket */
+/* end ucbpacket_type_to_bytes */
 
 /** ****************************************************************************
  * @name UcbPacketIsAnOutputPacket API
@@ -196,13 +131,6 @@ BOOL UcbPacketIsAnOutputPacket (UcbPacketType type)
         case UCB_IDENTIFICATION:
         case UCB_VERSION_DATA:
         case UCB_VERSION_ALL_DATA:
-        case UCB_SCALED_0:
-        case UCB_SCALED_1:
-        case UCB_SCALED_M:
-        case UCB_TEST_0:
-        case UCB_FACTORY_1:
-        case UCB_FACTORY_2:
-        case UCB_FACTORY_M:
             break;
 		default:
           isAnOutputPacket = FALSE;

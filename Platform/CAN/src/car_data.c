@@ -2,10 +2,10 @@
 #include "can.h"
 #include "string.h"
 #include "user_config.h"
+#include "ins_interface_API.h"
 
 WHEEL_SPEED_STRUCT wheel_speed;
 
-extern int32_t gps_start_week;
 
 void car_can_initialize(void)
 {
@@ -22,8 +22,8 @@ void can_config_filter_car(void)
 
     filterNum = 0;
     for (i = 0; i < 3; i++) {
-        if (gOdoConfigurationStruct.odo_mesg[i].usage == 0x55) {
-            can_config_filter_list_message(gOdoConfigurationStruct.odo_mesg[i].mesgID, 0x00);
+        if (gUserConfiguration.odo_mesg[i].usage == 0x55) {
+            can_config_filter_list_message(gUserConfiguration.odo_mesg[i].mesgID, 0x00);
         }
     }
 }
@@ -35,7 +35,7 @@ If it is another vehicle, modify this function to fit the communication protocol
 void car_can_data_process(uint32_t stdId, uint8_t* data)
 {
     gtime_t time;
-    mcu_time_base_t start_time;
+    mcu_time_base_t odo_time;
     int week = 0;
     double timestamp = 0.0;
     int64_t value = 0;
@@ -45,57 +45,48 @@ void car_can_data_process(uint32_t stdId, uint8_t* data)
     double svalue = 0.0;
     uint8_t i;
 
-    start_time = g_MCU_time;
-    time.time = start_time.time;
-    time.sec = (float)start_time.msec / 1000;
+    odo_time = g_MCU_time;
+    time.time = odo_time.time;
+    time.sec = (double)odo_time.msec / 1000;
     timestamp = time2gpst(time, &week);
-    if (gps_start_week == -1 || timestamp < 0.0) {
+    if (!is_gnss_start_week_valid() || timestamp < 0.0) {
         return;
     }
-
-    // if (stdId == CAR_CAN_ID_WHEEL_SPEED) {
-    //     wheel_speed.week = gps_start_week;
-    //     wheel_speed.timestamp = timestamp + (week - gps_start_week) * SECONDS_IN_WEEK;
-    //     wheel_speed.speed_FR = (((data[0] << 8) + data[1]) - 6767) * 0.01;
-    //     wheel_speed.speed_FL = (((data[2] << 8) + data[3]) - 6767) * 0.01;
-    //     wheel_speed.speed_RR = (((data[4] << 8) + data[5]) - 6767) * 0.01;
-    //     wheel_speed.speed_RL = (((data[6] << 8) + data[7]) - 6767) * 0.01;
-    //     wheel_speed.update = 1;
-    // }
+    timestamp += (week - get_gnss_start_week()) * SECONDS_IN_WEEK;
 
     for (i = 0; i < 3; i++) {
-        if (gOdoConfigurationStruct.odo_mesg[i].usage == 0x55) {
-            if (gOdoConfigurationStruct.odo_mesg[i].mesgID == stdId) {
+        if (gUserConfiguration.odo_mesg[i].usage == 0x55) {
+            if (gUserConfiguration.odo_mesg[i].mesgID == stdId) {
                 
-                if (gOdoConfigurationStruct.odo_mesg[i].startbit >= 64 ||
-                    gOdoConfigurationStruct.odo_mesg[i].length > 64 ||
-                    gOdoConfigurationStruct.odo_mesg[i].length == 0 ||
-                    gOdoConfigurationStruct.odo_mesg[i].endian >= 2 ||
-                    gOdoConfigurationStruct.odo_mesg[i].sign >= 2 ||
-                    gOdoConfigurationStruct.odo_mesg[i].unit > 2 ||
-                    gOdoConfigurationStruct.odo_mesg[i].source > 3) {
+                if (gUserConfiguration.odo_mesg[i].startbit >= 64 ||
+                    gUserConfiguration.odo_mesg[i].length > 64 ||
+                    gUserConfiguration.odo_mesg[i].length == 0 ||
+                    gUserConfiguration.odo_mesg[i].endian >= 2 ||
+                    gUserConfiguration.odo_mesg[i].sign >= 2 ||
+                    gUserConfiguration.odo_mesg[i].unit > 2 ||
+                    gUserConfiguration.odo_mesg[i].source > 3) {
                     continue;
                 }
-                if (gOdoConfigurationStruct.odo_mesg[i].endian == 0) {
-                    if (gOdoConfigurationStruct.odo_mesg[i].startbit + gOdoConfigurationStruct.odo_mesg[i].length > 64) {
+                if (gUserConfiguration.odo_mesg[i].endian == 0) {
+                    if (gUserConfiguration.odo_mesg[i].startbit + gUserConfiguration.odo_mesg[i].length > 64) {
                         continue;
                     }
                 } else {
-                    if ((((gOdoConfigurationStruct.odo_mesg[i].startbit / 8) + 1) * 8 - (gOdoConfigurationStruct.odo_mesg[i].startbit % 8)) < gOdoConfigurationStruct.odo_mesg[i].length) {
+                    if ((((gUserConfiguration.odo_mesg[i].startbit / 8) + 1) * 8 - (gUserConfiguration.odo_mesg[i].startbit % 8)) < gUserConfiguration.odo_mesg[i].length) {
                         continue;
                     }
                 }
 
                 value = 0;
-                unit = gOdoConfigurationStruct.odo_mesg[i].unit;
-                source = gOdoConfigurationStruct.odo_mesg[i].source;
-                factor = gOdoConfigurationStruct.odo_mesg[i].factor;
-                offset = gOdoConfigurationStruct.odo_mesg[i].offset;
-                endian = gOdoConfigurationStruct.odo_mesg[i].endian;
-                sign = gOdoConfigurationStruct.odo_mesg[i].sign;
-                index_byte = gOdoConfigurationStruct.odo_mesg[i].startbit / 8;
-                index_bitofbyte = gOdoConfigurationStruct.odo_mesg[i].startbit % 8;
-                bitlen = gOdoConfigurationStruct.odo_mesg[i].length;
+                unit = gUserConfiguration.odo_mesg[i].unit;
+                source = gUserConfiguration.odo_mesg[i].source;
+                factor = gUserConfiguration.odo_mesg[i].factor;
+                offset = gUserConfiguration.odo_mesg[i].offset;
+                endian = gUserConfiguration.odo_mesg[i].endian;
+                sign = gUserConfiguration.odo_mesg[i].sign;
+                index_byte = gUserConfiguration.odo_mesg[i].startbit / 8;
+                index_bitofbyte = gUserConfiguration.odo_mesg[i].startbit % 8;
+                bitlen = gUserConfiguration.odo_mesg[i].length;
                 bitlent = bitlen;
 
                 while (bitlen > 0) {
@@ -120,13 +111,13 @@ void car_can_data_process(uint32_t stdId, uint8_t* data)
                 // printf("value = %lld, svalue = %lf\r\n", value, svalue);
 
                 if (source == 0x03) {
-                    if (svalue == gOdoConfigurationStruct.gears[0]) {
+                    if (svalue == gUserConfiguration.gears[0]) {
                         wheel_speed.fwd = 1;
-                    } else if (svalue == gOdoConfigurationStruct.gears[1]) {
+                    } else if (svalue == gUserConfiguration.gears[1]) {
                         wheel_speed.fwd = 0;
-                    } else if (svalue == gOdoConfigurationStruct.gears[2]) {
+                    } else if (svalue == gUserConfiguration.gears[2]) {
                         wheel_speed.fwd = 1;
-                    } else if (svalue == gOdoConfigurationStruct.gears[3]) {
+                    } else if (svalue == gUserConfiguration.gears[3]) {
                         wheel_speed.fwd = 1;
                     }
 
@@ -145,7 +136,7 @@ void car_can_data_process(uint32_t stdId, uint8_t* data)
                         wheel_speed.speed_combined = svalue;
                     }
                     wheel_speed.update |= 1 << source;
-                    wheel_speed.week = week;
+                    wheel_speed.week = get_gnss_start_week();
                     wheel_speed.timestamp = timestamp;
                 }
             }

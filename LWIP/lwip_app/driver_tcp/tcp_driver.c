@@ -1,4 +1,6 @@
-#include "string.h"
+#include <stdlib.h>
+#include <string.h>
+
 #include "stm32f4xx_hal.h"
 #include "osapi.h"
 #include "user_config.h"
@@ -43,7 +45,7 @@ void client_link_down(uint8_t* client_state)
     }    
 }
 
-err_t client_write_data(client_s* client, uint8_t *tx_buf, uint16_t tx_len, uint8_t apiflags)
+err_t client_write_data(client_s* client, const uint8_t *tx_buf, uint16_t tx_len, uint8_t apiflags)
 {
 	err_t err;
 
@@ -113,14 +115,18 @@ uint8_t driver_data_push(uint8_t* buf, uint16_t len)
 {
 	osMutexWait(driver_data_client.tx_fifo_mutex, osWaitForever);
     client_push_tx_data(&driver_data_client,buf,len);
-	osMutexRelease(driver_data_client.tx_fifo_mutex);    
+	osMutexRelease(driver_data_client.tx_fifo_mutex);
+
+    return 1;   
 }
 
 uint8_t driver_push(uint8_t* buf, uint16_t len)
 {
 	osMutexWait(driver_client.tx_fifo_mutex, osWaitForever);
     client_push_tx_data(&driver_client,buf,len);
-	osMutexRelease(driver_client.tx_fifo_mutex);   
+	osMutexRelease(driver_client.tx_fifo_mutex);
+
+    return 1;   
 }
 
 
@@ -135,13 +141,13 @@ extern uint32_t debug_p1_log_delay;
 void driver_interface(void)
 {
     static ip_addr_t server_ipaddr;
-    static uint8_t tx_buf[512];
+    static char tx_buf[512];
     static uint8_t write_fail = 0;
     uint16_t tx_len = 0;
     err_t err;
     if (is_eth_link_down())
     {
-        client_link_down(&driver_client);
+        client_link_down(&(driver_client.client_state));
     }
     
     switch (driver_client.client_state)
@@ -181,11 +187,10 @@ void driver_interface(void)
             break;
 
         case CLIENT_STATE_REQUEST:
-            // uart_write_bytes(UART_DEBUG,"start write data\r\n",strlen("start write data\r\n"),1);
-            // OS_Delay(100);
+            
             sprintf(tx_buf,"hello pc i'm openrtk\r\n");
             tx_len = strlen(tx_buf);
-            err = client_write_data(&driver_client, tx_buf, tx_len, NETCONN_COPY);
+            err = client_write_data(&driver_client, (uint8_t *)tx_buf, tx_len, NETCONN_COPY);
             if (err == ERR_OK)
             {
                 OS_Delay(100);
@@ -251,7 +256,7 @@ void driver_interface(void)
 void driver_output_data_interface(void)
 {
     static ip_addr_t server_ipaddr;
-    static uint8_t tx_buf[DRIVER_TX_BUFSIZE];
+    static char tx_buf[DRIVER_TX_BUFSIZE];
     static uint8_t write_fail = 0;
     uint16_t tx_len = 0;
     err_t err;
@@ -259,7 +264,7 @@ void driver_output_data_interface(void)
     char *out;
     if (is_eth_link_down())
     {
-        client_link_down(&driver_data_client);
+        client_link_down(&driver_data_client.client_state);
     }
     
     switch (driver_data_client.client_state)
@@ -302,7 +307,7 @@ void driver_output_data_interface(void)
             // OS_Delay(100);
             sprintf(tx_buf,"hello pc i'm openrtk_data\r\n");
             tx_len = strlen(tx_buf);
-            err = client_write_data(&driver_data_client, tx_buf, tx_len, NETCONN_COPY);
+            err = client_write_data(&driver_data_client, (uint8_t *)tx_buf, tx_len, NETCONN_COPY);
             if (err == ERR_OK)
             {
                 OS_Delay(100);
@@ -319,12 +324,8 @@ void driver_output_data_interface(void)
                         cJSON_AddItemToObject(fmt, "Product SN", cJSON_CreateNumber(GetUnitSerialNum()));
                         cJSON_AddItemToObject(fmt, "Version", cJSON_CreateString(APP_VERSION_STRING));
 
-                        uint8_t *user_packet_type = get_user_packet_type();
-                        char packet_type_str[5] = {0};
-                        packet_type_str[0] = user_packet_type[0];
-                        packet_type_str[1] = user_packet_type[1];
-
-                        uint16_t user_packet_rate = get_user_packet_rate();
+                        char packet_type_str[5] = "s1";
+                        uint16_t user_packet_rate = 100;
 
                         cJSON_AddItemToObject(fmt, "userPacketType", cJSON_CreateString(packet_type_str));
                         cJSON_AddItemToObject(fmt, "userPacketRate", cJSON_CreateNumber(user_packet_rate));
@@ -333,17 +334,17 @@ void driver_output_data_interface(void)
                         cJSON_AddItemToObject(fmt, "leverArmBx", cJSON_CreateNumber(*ins_para));
                         cJSON_AddItemToObject(fmt, "leverArmBy", cJSON_CreateNumber(*(ins_para + 1)));
                         cJSON_AddItemToObject(fmt, "leverArmBz", cJSON_CreateNumber(*(ins_para + 2)));
-                        cJSON_AddItemToObject(fmt, "pointOfInterestBx", cJSON_CreateNumber(*(ins_para + 3)));
-                        cJSON_AddItemToObject(fmt, "pointOfInterestBy", cJSON_CreateNumber(*(ins_para + 4)));
-                        cJSON_AddItemToObject(fmt, "pointOfInterestBz", cJSON_CreateNumber(*(ins_para + 5)));
-                        cJSON_AddItemToObject(fmt, "rotationRbvx", cJSON_CreateNumber(*(ins_para + 6)));
-                        cJSON_AddItemToObject(fmt, "rotationRbvy", cJSON_CreateNumber(*(ins_para + 7)));
-                        cJSON_AddItemToObject(fmt, "rotationRbvz", cJSON_CreateNumber(*(ins_para + 8)));
+                        cJSON_AddItemToObject(fmt, "pointOfInterestBx", cJSON_CreateNumber(*(ins_para + 6)));
+                        cJSON_AddItemToObject(fmt, "pointOfInterestBy", cJSON_CreateNumber(*(ins_para + 7)));
+                        cJSON_AddItemToObject(fmt, "pointOfInterestBz", cJSON_CreateNumber(*(ins_para + 8)));
+                        cJSON_AddItemToObject(fmt, "rotationRbvx", cJSON_CreateNumber(*(ins_para + 9)));
+                        cJSON_AddItemToObject(fmt, "rotationRbvy", cJSON_CreateNumber(*(ins_para + 10)));
+                        cJSON_AddItemToObject(fmt, "rotationRbvz", cJSON_CreateNumber(*(ins_para + 11)));
 
                         out = cJSON_Print(root);
                         cJSON_Delete(root);
-                        client_write_data(&driver_data_client, out, strlen(out), NETCONN_COPY);
-                        // uart_write_bytes(UART_DEBUG, out, strlen(out), 1);
+                        client_write_data(&driver_data_client, (uint8_t *)out, strlen(out), NETCONN_COPY);
+                        
                         free(out);
                         debug_com_log_on = 0;
                     }
@@ -354,10 +355,6 @@ void driver_output_data_interface(void)
                         driver_data_client.client_state = CLIENT_STATE_INTERACTIVE;
                     }
                 }
-                // if (rx_len && strstr((char *)driver_data_rx_buf, "i am pc") != NULL)
-                // {
-                //     driver_data_client.client_state = CLIENT_STATE_INTERACTIVE;
-                // }
             }
             else
             {
@@ -369,10 +366,10 @@ void driver_output_data_interface(void)
             }
             break;
         case CLIENT_STATE_INTERACTIVE:
-            tx_len = fifo_get(&driver_data_client.client_tx_fifo, tx_buf, DRIVER_TX_BUFSIZE);
+            tx_len = fifo_get(&driver_data_client.client_tx_fifo, (uint8_t *)tx_buf, DRIVER_TX_BUFSIZE);
             if (tx_len)
             {
-                err = client_write_data(&driver_data_client,tx_buf, tx_len, NETCONN_NOFLAG);
+                err = client_write_data(&driver_data_client, (uint8_t *)tx_buf, tx_len, NETCONN_NOFLAG);
                 if (err != 0) {
                     write_fail++;
                     if (write_fail >= 3)

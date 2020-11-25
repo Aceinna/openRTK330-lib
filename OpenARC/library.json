@@ -1,0 +1,12 @@
+{
+	"name": "OpenARC",
+ 	"version": "1.0.0",
+ 	"description": "Aceinna OpenARC library",
+ 	"build": {
+ 		"flags": [
+			"-I ."
+ 		],
+		"libArchive": true,
+		"platforms": "aceinna_imu"
+ 	}
+ }

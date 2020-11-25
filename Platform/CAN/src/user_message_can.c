@@ -188,11 +188,11 @@ void enqeue_periodic_packets(void)
         GPS_DATA gps_data;
 #ifdef INS_APP
         if (get_mGnssInsSystem_mlc_STATUS() == 4){
-            gps_data.latitude = get_ins_latitude() * 10000000;
-            gps_data.longitude = get_ins_longitude() * 10000000;
+            gps_data.latitude = g_ptr_ins_sol->latitude * 10000000;
+            gps_data.longitude = g_ptr_ins_sol->longitude * 10000000;
         } else {
-            gps_data.latitude = get_ins_latitude() * RAD_TO_DEG * 10000000;
-            gps_data.longitude = get_ins_longitude() * RAD_TO_DEG * 10000000;
+            gps_data.latitude = g_gnss_sol.latitude * RAD_TO_DEG * 10000000;
+            gps_data.longitude = g_gnss_sol.longitude * RAD_TO_DEG * 10000000;
         }
 #else
         gps_data.latitude = g_gnss_sol.latitude * RAD_TO_DEG * 10000000;
@@ -205,9 +205,9 @@ void enqeue_periodic_packets(void)
     if (packet_type & ACEINNA_SAE_J1939_PACKET_ATTITUDE) {
         ATTITUDE_DATA attitude_data;
         attitude_data.SID = 0;
-        attitude_data.Yaw = get_ins_azimuth() * DEG_TO_RAD * 10000;
-        attitude_data.Pitch = get_ins_pitch() * DEG_TO_RAD * 10000;
-        attitude_data.Roll = get_ins_roll() * DEG_TO_RAD * 10000;
+        attitude_data.Yaw = g_ptr_ins_sol->azimuth * DEG_TO_RAD * 10000;
+        attitude_data.Pitch = g_ptr_ins_sol->pitch * DEG_TO_RAD * 10000;
+        attitude_data.Roll = g_ptr_ins_sol->roll * DEG_TO_RAD * 10000;
         aceinna_j1939_send_attitude(&attitude_data);
     }
 #endif

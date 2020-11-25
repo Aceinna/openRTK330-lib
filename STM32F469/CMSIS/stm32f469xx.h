@@ -1975,8 +1975,8 @@ typedef struct
 #define ADC_CCR_MULTI_3           (0x08U << ADC_CCR_MULTI_Pos)                 /*!< 0x00000008 */
 #define ADC_CCR_MULTI_4           (0x10U << ADC_CCR_MULTI_Pos)                 /*!< 0x00000010 */
 #define ADC_CCR_DELAY_Pos         (8U)                                         
-#define ADC_CCR_DELAY_Msk         (0xFU << ADC_CCR_DELAY_Pos)                  /*!< 0x00000F00 */
-#define ADC_CCR_DELAY             ADC_CCR_DELAY_Msk                            /*!<DELAY[3:0] bits (Delay between 2 sampling phases) */  
+#define ADC_CCR_DelayMsk         (0xFU << ADC_CCR_DELAY_Pos)                  /*!< 0x00000F00 */
+#define ADC_CCR_DELAY             ADC_CCR_DelayMsk                            /*!<DELAY[3:0] bits (Delay between 2 sampling phases) */  
 #define ADC_CCR_DELAY_0           (0x1U << ADC_CCR_DELAY_Pos)                  /*!< 0x00000100 */
 #define ADC_CCR_DELAY_1           (0x2U << ADC_CCR_DELAY_Pos)                  /*!< 0x00000200 */
 #define ADC_CCR_DELAY_2           (0x4U << ADC_CCR_DELAY_Pos)                  /*!< 0x00000400 */

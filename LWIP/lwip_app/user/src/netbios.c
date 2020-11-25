@@ -35,7 +35,9 @@
 
 #include <stdlib.h>
 #include <string.h>
+
 #include "calibrationAPI.h"
+#include "tcp_driver.h"
 
 /** This is an example implementation of a NetBIOS name server.
  * It responds to name queries for a configurable name.

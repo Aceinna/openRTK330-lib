@@ -47,18 +47,18 @@ void TaskCANCommunicationJ1939(void const *argument)
     BOOL  finished;
     
     for (;;) {
-        if (gOdoConfigurationStruct.can_mode == 0) {
+        if (gUserConfiguration.can_mode == 0) {
             car_can_initialize();
 
             while (1)
             {
                 OS_Delay(1000);
-                if (gOdoConfigurationStruct.can_mode != 0) {
+                if (gUserConfiguration.can_mode != 0) {
                     break;
                 }
             }
             
-        } else if (gOdoConfigurationStruct.can_mode == 1) {
+        } else if (gUserConfiguration.can_mode == 1) {
             can_config(1, baudRate);
 
             // initialize J1939 protocol stack   
@@ -107,17 +107,19 @@ void TaskCANCommunicationJ1939(void const *argument)
                 ecu_process();
 
                 packetRateCounter++;
-                
-                if(packetRateCounter >= gEcuConfig.packet_rate){
-                    packetRateCounter   = 0;
-                    // prepare and send outgoing periodic data packets
-                    // send periodic packets
-                    enqeue_periodic_packets();
+
+                if (gEcuConfig.packet_rate != 0) {
+                    if (packetRateCounter >= (100 / gEcuConfig.packet_rate)) {
+                        packetRateCounter = 0;
+                        // prepare and send outgoing periodic data packets
+                        // send periodic packets
+                        enqeue_periodic_packets();
+                    }
                 }
-                
+
                 ecu_transmit(); 
                 
-                if (gOdoConfigurationStruct.can_mode != 1) {
+                if (gUserConfiguration.can_mode != 1) {
                     break;
                 }
             }

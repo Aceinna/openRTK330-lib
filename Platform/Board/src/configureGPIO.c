@@ -1,20 +1,17 @@
 /** ***************************************************************************
- * @file   configureGPIO.c
- * @Author
- * @date   September, 2008
- * @brief  Copyright (c) 2013, 2014 All Rights Reserved.
+ * @file   configureGPIO.c, Initialize the GPIO pins to output for the OpenRTK330 
+ *        board
+ * @date   September, 2020
+ * @brief  Copyright (c) 2020,
  *
  * THIS CODE AND INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY
  * KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
  * PARTICULAR PURPOSE.
  *
- * Initialize the GPIO pins to output for the 380 board
  ******************************************************************************/
 #include "configureGPIO.h"
-// #include "boardAPI.h"
 #include "constants.h"
-// #include "platformAPI.h"
 #include "stm32f4xx_hal_conf.h"
 #include "bsp.h"
 

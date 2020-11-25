@@ -2,14 +2,9 @@
  * @file boardDefinition.h RTK330 ARM Cortex M4 I/O pins and interrupts
  * @brief Settings for the RTK330 board (STM32F469NI).
  *
- * THIS CODE AND INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY
- * KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
- * PARTICULAR PURPOSE.
- *
  *****************************************************************************///
 /*******************************************************************************
-Copyright 2019 ACEINNA, INC
+Copyright 2020 ACEINNA, INC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -463,15 +458,15 @@ limitations under the License.
 
 
 
-#define PLUSE_PIN                           GPIO_PIN_7
-#define PLUSE_PORT                          GPIOE
+#define PULSE_PIN                           GPIO_PIN_7
+#define PULSE_PORT                          GPIOE
 #define FWD_GPIO_CLK_ENABLE()               __HAL_RCC_GPIOE_CLK_ENABLE()
 #define FWD_PIN                             GPIO_PIN_8
 #define FWD_PORT                            GPIOE
-#define PLUSE_GPIO_CLK_ENABLE()             __HAL_RCC_GPIOE_CLK_ENABLE()
+#define PUlSE_GPIO_CLK_ENABLE()             __HAL_RCC_GPIOE_CLK_ENABLE()
 
-#define PLUSE_IRQn                          EXTI9_5_IRQn
-#define SPI_PLUSE_IRQ                       EXTI9_5_IRQHandler
+#define PUlSE_IRQn                          EXTI9_5_IRQn
+#define SPI_PULSE_IRQ                       EXTI9_5_IRQHandler
 
 
 #endif

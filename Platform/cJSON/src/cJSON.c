@@ -404,7 +404,7 @@ static char *print_value(cJSON *item,int depth,int fmt,printbuffer *p)
 	if (!item) return 0;
 	if (p)
 	{
-		switch ((item->type)&255)
+		switch ((item->type) & 255)
 		{
 			case cJSON_NULL:	{out=ensure(p,5);	if (out) strcpy(out,"null");	break;}
 			case cJSON_False:	{out=ensure(p,6);	if (out) strcpy(out,"false");	break;}

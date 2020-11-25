@@ -22,6 +22,7 @@
 #include "main.h"
 #include "user_config.h"
 #include "app_version.h"
+#include "serial_port.h"
 
 #define SENSOR_TIMER_IRQ                       TIM2_IRQHandler
 
@@ -127,6 +128,7 @@ static void timer_isr_if(TIM_HandleTypeDef* timer)
             {
                 g_MCU_time.msec = 0;
                 g_MCU_time.time ++;
+                reset_user_packet_divide();
             }
 #ifdef INS_APP
             if(g_MCU_time.msec % 10 == 0) // 100Hz
@@ -156,7 +158,7 @@ static void timer_isr_if(TIM_HandleTypeDef* timer)
                 break;             
             }
 #endif
-            if (gOdoConfigurationStruct.can_mode == 1) {
+            if (gUserConfiguration.can_mode == 1) {
                 if(g_MCU_time.msec % 10 == 0) { // 100Hz
                     release_sem(g_sem_can_data);
                 }

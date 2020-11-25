@@ -17,9 +17,6 @@
 
 #define SIZEOF_WORD            2 // [bytes]
 
-/// hard and soft iron resolution (2^16 / 2)
-#define IRON_SCALE         32768
-
 
 #define TEMP_COUNT             0
 #define BIAS_VALUE             1
@@ -44,48 +41,6 @@
 #define BAUD_460800	7
 
 #define NUM_BAUD_RATES      8
-
-// xbowsp_fields.c (set default at startup to 20 Hz, AU pckt at 57.6 kbps)
-#define DEFAULT_PACKET_RATE_DIVIDER     2
-#define DEFAULT_PACKET_CODE             0x4631
-#define DEFAULT_BAUD_RATE               BAUD_115200
-
-// here is definition for packet rate divider
-// considering that data acquisition task runs at 200 Hz 
-typedef enum {
-    PACKET_RATE_DIV_INVALID = -1,
-    PACKET_RATE_DIV_QUIET   = 0,      // quiet mode
-    PACKET_RATE_DIV_200HZ   = 200,    // packet rate 200 Hz
-    PACKET_RATE_DIV_100HZ   = 1,      // packet rate 100 Hz
-    PACKET_RATE_DIV_50HZ    = 2,      // packet rate 50 Hz
-    PACKET_RATE_DIV_25HZ    = 4,      // packet rate 25 Hz
-    PACKET_RATE_DIV_20HZ    = 5,     // packet rate 20 Hz
-    PACKET_RATE_DIV_10HZ    = 10,     // packet rate 10 Hz
-    PACKET_RATE_DIV_5HZ     = 20,     // packet rate 5  Hz
-    PACKET_RATE_DIV_2HZ     = 50,    // packet rate 2  Hz
-    PACKET_RATE_DIV_1HZ     = 100,    // packet rate 1  Hz
-}packet_rate_div_t;
-
-// supported baud rate
-typedef enum {
-  _ECU_500K      =    0,                    // 500kbps
-  _ECU_250K      =    1,                    // 250kbps
-  _ECU_125K      =    2,                    // 125kbps
-  _ECU_1000K     =    3                     // 1000kbps
-} _ECU_BAUD_RATE;
-
-// MTLT's ODR on CAN
-enum {
-  CAN_PACKET_RATE_0           =           0,   //quiet
-  CAN_PACKET_RATE_2           =           2,   // 2Hz
-  CAN_PACKET_RATE_5           =           5,   // 5Hz
-  CAN_PACKET_RATE_10          =           10,  // 10Hz
-  CAN_PACKET_RATE_20          =           20,  // 20Hz
-  CAN_PACKET_RATE_25          =           25,  // 25Hz
-  CAN_PACKET_RATE_50          =           50,  // 50Hz
-  CAN_PACKET_RATE_100         =           100, // 100Hz
-  CAN_PACKET_RATE_200         =           200  // 200Hz
-};
 
 
 /// specifying how the user sets up the device
@@ -211,19 +166,6 @@ typedef struct {
 extern ConfigurationStruct gConfiguration;
 
 
-typedef struct {
-    /// Input
-    unsigned int  TableLength;	       ///< table size (starting with 0)
-    uint8_t       firstColumnUnsigned; ///< TRUE: unsigned, FALSE, signed.
-    unsigned int  bIndexLastSearch;    ///< index of the beginning row
-                                       /// (where the last search ended)
-    unsigned int  numberToBeSearched;  ///< search input--left column output
-    unsigned int  bLeftValue;
-    unsigned int  eLeftValue;  ///< search result: first row's columns(beginning and end)
-    int           bRightValue;
-    int           eRightValue; ///< search result:  second row's columns (beginning and end)
-}LUTinOutStruct;
-
 
 /**
  * 'VR' and 'VA' only use UINT8 field bootloader reads unspecified UINT (but
@@ -237,51 +179,10 @@ typedef struct {
     unsigned int build;
 } softwareVersionStruct;
 
-/// servicing/calling frequency of serial port transmit routine
-#define SERIAL_TX_ROUTINE_FREQUENCY 100 ///< Hz
-int32_t baudEnumToBaudRate(int baudEnum);
-
-#define FORWARD   0
-#define RIGHT     1
-#define DOWN      2
-
-#define PLUS_X    0x582B
-#define PLUS_Y    0x592B
-#define PLUS_Z    0x5A2B
-#define MINUS_X   0x582D
-#define MINUS_Y   0x592D
-#define MINUS_Z   0x5A2D
-
-
-#define FWD_X_PLUS_MASK	   0x00000000
-#define FWD_X_MINUS_MASK   0x00000001
-#define FWD_Y_PLUS_MASK	   0x00000002
-#define FWD_Y_MINUS_MASK   0x00000003
-#define FWD_Z_PLUS_MASK	   0x00000004
-#define FWD_Z_MINUS_MASK   0x00000005
-
-#define RIGHT_X_PLUS_MASK  0x00000020
-#define RIGHT_X_MINUS_MASK 0x00000028
-#define RIGHT_Y_PLUS_MASK  0x00000000
-#define RIGHT_Y_MINUS_MASK 0x00000008
-#define RIGHT_Z_PLUS_MASK  0x00000010
-#define RIGHT_Z_MINUS_MASK 0x00000018
-
-#define DOWN_X_PLUS_MASK   0x00000080
-#define DOWN_X_MINUS_MASK  0x000000C0
-#define DOWN_Y_PLUS_MASK   0x00000100
-#define DOWN_Y_MINUS_MASK  0x00000140
-#define DOWN_Z_PLUS_MASK   0x00000000
-#define DOWN_Z_MINUS_MASK  0x00000040
-
 
 // placholders for Nav_view compatibility
 extern softwareVersionStruct dupFMversion; 
 extern softwareVersionStruct ioupFMversion;
 extern softwareVersionStruct bootFMversion;
-uint16_t configGetPacketCode();
+
 #endif
-
-
-
-

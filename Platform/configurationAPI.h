@@ -30,50 +30,17 @@ limitations under the License.
 
 #include "constants.h"
 
-// serial port related functions
-int      configGetPacketRate(void);
-int      configGetBaudRate(void);
-int      configGetPacketRateDivider(int configParam);
-BOOL     configSetPacketRate(int rate, BOOL fApply);
-BOOL     configSetBaudRate(int baudRate, BOOL fApply);
-BOOL     configSetOutputPacketCode(uint16_t code, BOOL fApply);
-
 // IMU related functions
-BOOL     configSetUserOrientation(uint16_t *input, BOOL fApply);
-uint16_t configGetOrientation(void);
+uint16_t configGetSensorFilterTypeForSPI();
 int      configGetAccelLfpFreq();
 int      configGetRateLfpFreq();
 uint16_t configGetPrefilterFreq();
-BOOL     configSelectUserLPFilter(int sensor, int cutoffFreq, BOOL fApply);
-int      configApplyOrientation(uint16_t orientation);
 uint16_t configGetUsedChips(void);
 uint16_t configGetActiveChips(void);
 uint16_t configGetUsedSensors(int chipIdx);
 void     configSetUsedSensors(int idx, uint8_t mask);
-uint16_t configGetParam(int idx);
-
-// GPS related functions
-void     configSetGpsBaudRate(int16_t rate); 
-int      configGetGpsBaudRate(void);
-int      configGetGpsProtocol(void);
-void     configSetGpsProtocol(int protocol);
-int      configGetNextGpsBaudRate(int baudRate);
-
-// SPI bus related functions
-uint16_t configGetSensorFilterTypeForSPI();
-void     configSetSensorFilterTypeForSPI(uint16_t type);
-
-// CAN bus related parameters
-BOOL     configSaveEcuAddress(uint16_t* address);
-uint16_t configGetCANBaudRate(); 
-uint16_t configGetCANPacketRate();
-uint16_t configGetCANPacketsToTransmit();
-void     configSetCANPacketRate(int rate);
-BOOL     configIsCanBaudRateDetectEnabled();
-BOOL     configIsCanTermResistorEnabled();
-void     configSetPacketRateDividorForSPI(uint16_t dvd);
-uint16_t configGetPacketRateDividorForSPI();
-void     ApplyFactoryConfiguration();
 void     configSetUsedChips(uint8_t mask);
+
+void     ApplyFactoryConfiguration();
 
 #endif

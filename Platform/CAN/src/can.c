@@ -41,8 +41,8 @@ static void _can_set_baudrate(_ECU_BAUD_RATE br, CAN_InitTypeDef *pCan_initTypeD
 {
     switch (br)
     {
-    case _ECU_500K:
-        pCan_initTypeDef->Prescaler = 10;
+    case _ECU_125K:
+        pCan_initTypeDef->Prescaler = 40;
         pCan_initTypeDef->SyncJumpWidth = CAN_SJW_1TQ;
         pCan_initTypeDef->TimeSeg1 = CAN_BS1_6TQ;
         pCan_initTypeDef->TimeSeg2 = CAN_BS2_2TQ;
@@ -53,8 +53,8 @@ static void _can_set_baudrate(_ECU_BAUD_RATE br, CAN_InitTypeDef *pCan_initTypeD
         pCan_initTypeDef->TimeSeg1 = CAN_BS1_6TQ;
         pCan_initTypeDef->TimeSeg2 = CAN_BS2_2TQ;
         break;
-    case _ECU_125K:
-        pCan_initTypeDef->Prescaler = 40;
+    case _ECU_500K:
+        pCan_initTypeDef->Prescaler = 10;
         pCan_initTypeDef->SyncJumpWidth = CAN_SJW_1TQ;
         pCan_initTypeDef->TimeSeg1 = CAN_BS1_6TQ;
         pCan_initTypeDef->TimeSeg2 = CAN_BS2_2TQ;
@@ -193,7 +193,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 
     if (hcan == &canHandle)
     {
-        if (gOdoConfigurationStruct.can_mode == 0) {
+        if (gUserConfiguration.can_mode == 0) {
             if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &can_rx_msg.rx_header, can_rx_msg.data) == HAL_OK)
             {
                 if (can_rx_msg.rx_header.IDE == CAN_ID_STD && can_rx_msg.rx_header.DLC == 8)
@@ -201,7 +201,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
                     car_can_data_process(can_rx_msg.rx_header.StdId, can_rx_msg.data);
                 }
             }
-        } else if (gOdoConfigurationStruct.can_mode == 1) {
+        } else if (gUserConfiguration.can_mode == 1) {
             if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &gEcuInst.curr_rx_desc->rx_buffer.rx_header, gEcuInst.curr_rx_desc->rx_buffer.data) == HAL_OK)
             {
                 canRxIntCounter++;
@@ -220,7 +220,7 @@ void USER_CAN_RX_IRQHandler(void)
 
 void HAL_CAN_TxComplete(CAN_HandleTypeDef *hcan)
 {
-    if (gOdoConfigurationStruct.can_mode == 1) {
+    if (gUserConfiguration.can_mode == 1) {
         if (gCANTxCompleteCallback != NULL) {
             gCANTxCompleteCallback();
         }
@@ -356,7 +356,7 @@ BOOL can_detect_baudrate(_ECU_BAUD_RATE *rate)
                 (*rate)++;
                 if (*rate >= _ECU_1000K)
                 {
-                    *rate = _ECU_500K;
+                    *rate = _ECU_125K;
                 }
                 return FALSE;
             }

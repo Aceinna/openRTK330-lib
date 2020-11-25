@@ -2,6 +2,7 @@
 #define _TCP_DRIVER_H_
 
 #include <stdio.h>
+
 #include "lwip/err.h"
 #include "lwip/api.h"
 #include "lwip/opt.h"
@@ -37,7 +38,7 @@ typedef struct CLIENT_S_
     fifo_type   client_tx_fifo;
     fifo_type   client_rx_fifo;
     osMutexId   tx_fifo_mutex;
-}client_s;
+} client_s;
 
 void driver_interface(void);
 void driver_output_data_interface(void);
@@ -48,6 +49,7 @@ uint8_t get_tcp_driver_state();
 uint8_t get_tcp_data_driver_state();
 uint8_t driver_data_push(uint8_t* buf, uint16_t len);
 uint8_t driver_push(uint8_t* buf, uint16_t len);
-err_t client_write_data(client_s* client, uint8_t *tx_buf, uint16_t tx_len, uint8_t apiflags);
+err_t client_write_data(client_s* client, const uint8_t *tx_buf, uint16_t tx_len, uint8_t apiflags);
+void set_server_ip(ip_addr_t* value);
 
 #endif

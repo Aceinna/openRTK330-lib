@@ -94,7 +94,7 @@
  * request being ignored.
  *
  */
-typedef  const char *(*tCGIHandler)(int iIndex, int iNumParams, char *pcParam[],
+typedef  const char *(*tCGIHandler)(int32_t iIndex, int32_t iNumParams, char *pcParam[],
                              char *pcValue[]);
 
 /*
@@ -107,12 +107,12 @@ typedef struct
     tCGIHandler pfnCGIHandler;
 } tCGI;
 
-void http_set_cgi_handlers(const tCGI *pCGIs, int iNumHandlers);
+void http_set_cgi_handlers(const tCGI *pCGIs, int32_t iNumHandlers);
 
 /*
  * Function pointer for a CGI script handler.
  */
-typedef  const char *(*tJSHandler)(int iIndex, int iNumParams, char *pcParam[],
+typedef  const char *(*tJSHandler)(int32_t iIndex, int32_t iNumParams, char *pcParam[],
                              char *pcValue[]);
 /*
  * Structure defining the base filename (URL) of a JS and the associated
@@ -124,7 +124,7 @@ typedef struct
     tJSHandler pfnJSHandler;
 } tJS;
 
-void http_set_js_handlers(const tJS *pJSs, int iNumHandlers);
+void http_set_js_handlers(const tJS *pJSs, int32_t iNumHandlers);
 
 
 /* The maximum number of parameters that the CGI handler can be sent. */
@@ -175,7 +175,7 @@ void http_set_js_handlers(const tJS *pJSs, int iNumHandlers);
  * HTML <script>...</script> section as a single include.
  */
 
-typedef u16_t (*tSSIHandler)(int iIndex, char *pcInsert, int iInsertLen
+typedef u16_t (*tSSIHandler)(int32_t iIndex, char *pcInsert, int32_t iInsertLen
 #if LWIP_HTTPD_SSI_MULTIPART
                              , u16_t current_tag_part, u16_t *next_tag_part
 #endif /* LWIP_HTTPD_SSI_MULTIPART */
@@ -185,7 +185,7 @@ typedef u16_t (*tSSIHandler)(int iIndex, char *pcInsert, int iInsertLen
                              );
 
 void http_set_ssi_handler(tSSIHandler pfnSSIHandler,
-                          const char **ppcTags, int iNumTags);
+                          const char **ppcTags, int32_t iNumTags);
 
 /* The maximum length of the string comprising the tag name */
 #ifndef LWIP_HTTPD_MAX_TAG_NAME_LEN
@@ -222,7 +222,7 @@ void http_set_ssi_handler(tSSIHandler pfnSSIHandler,
  *         another err_t: Deny the POST request, send back 'bad request'.
  */
 err_t httpd_post_begin(void *connection, const char *uri, const char *http_request,
-                       u16_t http_request_len, int content_len, char *response_uri,
+                       u16_t http_request_len, int32_t content_len, char *response_uri,
                        u16_t response_uri_len, u8_t *post_auto_wnd);
 
 /** Called for each pbuf of data that has been received for a POST.

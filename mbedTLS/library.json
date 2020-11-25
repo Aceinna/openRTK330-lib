@@ -1,0 +1,15 @@
+{
+	"name": "TLS",
+ 	"version": "2.6.1",
+ 	"description": "mbedTLS",
+ 	"build": {
+ 		"flags": [
+			"-I lib/include",
+			"-I lib/include/mbedtls",
+			"-I app/inc",
+			"-I ."
+ 		],
+		"libArchive": true,
+		"platforms": "aceinna_imu"
+ 	}
+ }

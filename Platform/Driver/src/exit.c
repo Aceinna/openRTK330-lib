@@ -86,10 +86,10 @@ void ST_PPS_IRQ(void)
 }
 
 
-void PLUSE_IRQ()
+void PULSE_IRQ()
 {
     add_wheel_tick_count();
     set_wheel_tick_fwd(HAL_GPIO_ReadPin(FWD_PORT,FWD_PIN));
-    HAL_GPIO_EXTI_IRQHandler(PLUSE_PIN);
+    HAL_GPIO_EXTI_IRQHandler(PULSE_PIN);
 }
 

@@ -9,15 +9,22 @@
 #define _SPI_H_
 
 #include "stm32f4xx_hal.h"
-#ifdef INCEPTIO
-#define SPI_BUF_SIZE 170+19 
-#else
-#define SPI_BUF_SIZE 434
+
+#ifdef __cplusplus
+    extern "C" {
 #endif
+
+#define SPI_BUF_SIZE (434)
+
 
 extern SPI_HandleTypeDef hspi5;
 void MX_SPI5_Init(void);
 
 extern uint8_t spi_buff[SPI_BUF_SIZE];
 extern uint8_t spi_ready_flag;
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

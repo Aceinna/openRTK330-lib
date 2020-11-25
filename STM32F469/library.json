@@ -4,12 +4,10 @@
  	"description": "STM32F469 MCU Low Level Library",
  	"build": {
  		"flags": [
-			"-I include",
 			"-I CMSIS",
 			"-I HAL/Inc",
 			"-I HAL/Inc/Legacy",
 			"-I HAL/Src",
-			"-I OS/Inc",
 			"-I ."
  		],
 		"libArchive": true,

@@ -1,5 +1,3 @@
-#ifdef BASE_STATION
-
 #ifndef _NETCONN_H_
 #define _NETCONN_H_
 
@@ -34,5 +32,3 @@ void netconn_link_down(NETCONN_STATE *state);
 uint8_t netconn_is_interactive(NETCONN_STATE *state);
 
 #endif /* _TCP_NETCONN_H_ */
-
-#endif

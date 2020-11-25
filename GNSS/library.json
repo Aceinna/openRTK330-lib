@@ -1,0 +1,12 @@
+{
+	"name": "GNSS",
+ 	"version": "1.0.0",
+ 	"description": "OpenRTK330LI GNSS RTK/PPP position engine",
+ 	"build": {
+ 		"flags": [
+			"-I ./"
+ 		],
+		"libArchive": true,
+		"platforms": "aceinna_imu"
+ 	}
+ }

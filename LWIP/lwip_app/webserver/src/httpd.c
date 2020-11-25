@@ -235,15 +235,6 @@ typedef struct
   u8_t shtml;
 } default_filename;
 
-#ifndef BASE_STATION
-const default_filename g_psDefaultFilenames[] = {
-  {"/NtripCfg.shtml", true },
-  {"/NtripCfg.ssi", true },
-  {"/NtripCfg.shtm", true },
-  {"/NtripCfg.html", false },
-  {"/NtripCfg.htm", false }
-};
-#else
 const default_filename g_psDefaultFilenames[] = {
   {"/runStatus.shtml", true },
   {"/runStatus.ssi", true },
@@ -251,7 +242,6 @@ const default_filename g_psDefaultFilenames[] = {
   {"/runStatus.html", false },
   {"/runStatus.htm", false }
 };
-#endif
 
 #define NUM_DEFAULT_FILENAMES (sizeof(g_psDefaultFilenames) /   \
                                sizeof(default_filename))
@@ -302,7 +292,7 @@ struct http_state {
 
 #if LWIP_HTTPD_SSI || LWIP_HTTPD_DYNAMIC_HEADERS
   char *buf;        /* File read buffer. */
-  int buf_len;      /* Size of file read buffer, buf. */
+  int32_t buf_len;      /* Size of file read buffer, buf. */
 #endif /* LWIP_HTTPD_SSI || LWIP_HTTPD_DYNAMIC_HEADERS */
   u32_t left;       /* Number of unsent bytes in buf. */
   u8_t retries;
@@ -363,14 +353,14 @@ extern void httpd_js_init(void);
 #endif
 
 
-static err_t http_find_file(struct http_state *hs, const char *uri, int is_09);
-static err_t http_init_file(struct http_state *hs, struct fs_file *file, int is_09, const char *uri);
+static err_t http_find_file(struct http_state *hs, const char *uri, int32_t is_09);
+static err_t http_init_file(struct http_state *hs, struct fs_file *file, int32_t is_09, const char *uri);
 static err_t http_poll(void *arg, struct tcp_pcb *pcb);
 
 #if LWIP_HTTPD_SSI
 /* SSI insert handler function pointer. */
 tSSIHandler g_pfnSSIHandler = NULL;
-int g_iNumTags = 0;
+int32_t g_iNumTags = 0;
 const char **g_ppcTags = NULL;
 
 
@@ -384,13 +374,13 @@ const char * const g_pcTagLeadOut = "-->";
 #if LWIP_HTTPD_CGI
 /* CGI handler information */
 const tCGI *g_pCGIs = NULL;
-int g_iNumCGIs = 0;
+int32_t g_iNumCGIs = 0;
 #endif /* LWIP_HTTPD_CGI */
 
 #if LWIP_HTTPD_SUPPORT_JS
 /* JS handler information */
 const tJS *g_pJSs = NULL;
-int g_iNumJSs = 0;
+int32_t g_iNumJSs = 0;
 #endif /* LWIP_HTTPD_SUPPORT_JS */
 
 #if LWIP_HTTPD_STRNSTR_PRIVATE
@@ -398,7 +388,7 @@ int g_iNumJSs = 0;
 static char* strnstrd(const char* buffer, const char* token, size_t n)
 {
   const char* p;
-  int tokenlen = (int)strlen(token);
+  int32_t tokenlen = (int32_t)strlen(token);
   if (tokenlen == 0) {
     return (char *)buffer;
   }
@@ -544,11 +534,11 @@ static void http_close_conn(struct tcp_pcb *pcb, struct http_state *hs)
  * @param params pointer to the NULL-terminated parameter string from the URI
  * @return number of parameters extracted
  */
-static int extract_uri_parameters(struct http_state *hs, char *params)
+static int32_t extract_uri_parameters(struct http_state *hs, char *params)
 {
   char *pair;
   char *equals;
-  int loop;
+  int32_t loop;
 
   /* If we have no parameters at all, return immediately. */
   if(!params || (params[0] == '\0')) {
@@ -614,7 +604,7 @@ static int extract_uri_parameters(struct http_state *hs, char *params)
  */
 static void get_tag_insert(struct http_state *hs)
 {
-  int loop;
+  int32_t loop;
   size_t len;
 #if LWIP_HTTPD_SSI_MULTIPART
   u16_t current_tag_part = hs->tag_part;
@@ -667,7 +657,7 @@ static void get_tag_insert(struct http_state *hs)
  */
 static void get_http_headers(struct http_state *pState, char *pszURI)
 {
-  unsigned int iLoop;
+  unsigned int32_t iLoop;
   char *pszWork;
   char *pszExt;
   char *pszVars;
@@ -849,7 +839,7 @@ static u8_t http_send_data(struct tcp_pcb *pcb, struct http_state *hs)
    * block from the file. */
   if (hs->left == 0) {
 #if LWIP_HTTPD_SSI || LWIP_HTTPD_DYNAMIC_HEADERS
-    int count;
+    int32_t count;
 #endif /* LWIP_HTTPD_SSI || LWIP_HTTPD_DYNAMIC_HEADERS */
 
     /* Do we have a valid file handle? */
@@ -1446,7 +1436,7 @@ static err_t http_post_request(struct tcp_pcb *pcb, struct pbuf **inp, struct ht
     if (scontent_len != NULL) {
       char *scontent_len_end = strnstrd(scontent_len + HTTP_HDR_CONTENT_LEN_LEN, CRLF, HTTP_HDR_CONTENT_LEN_DIGIT_MAX_LEN);
       if (scontent_len_end != NULL) {
-        int content_len;
+        int32_t content_len;
         char *conten_len_num = scontent_len + HTTP_HDR_CONTENT_LEN_LEN;
         *scontent_len_end = 0;
         content_len = atoi(conten_len_num);
@@ -1621,9 +1611,9 @@ static err_t http_parse_request(struct pbuf **inp, struct http_state *hs, struct
     crlf = strnstrd(data, CRLF, data_len);
     if (crlf != NULL) {
 #if LWIP_HTTPD_SUPPORT_POST
-      int is_post = 0;
+      int32_t is_post = 0;
 #endif /* LWIP_HTTPD_SUPPORT_POST */
-      int is_09 = 0;
+      int32_t is_09 = 0;
       char *sp1, *sp2;
       u16_t left_len, uri_len;
       LWIP_DEBUGF(HTTPD_DEBUG | LWIP_DBG_TRACE, ("CRLF received, parsing request\n"));
@@ -1730,14 +1720,14 @@ badrequest:
  * @return ERR_OK if file was found and hs has been initialized correctly
  *         another err_t otherwise
  */
-static err_t http_find_file(struct http_state *hs, const char *uri, int is_09)
+static err_t http_find_file(struct http_state *hs, const char *uri, int32_t is_09)
 {
   size_t loop;
   struct fs_file *file = NULL;
   /* default is request not supported, until it can be parsed */
 #if LWIP_HTTPD_CGI
-  int i;
-  int count;
+  int32_t i;
+  int32_t count;
   char *params;
 #endif /* LWIP_HTTPD_CGI */
 
@@ -1877,7 +1867,7 @@ static err_t http_find_file(struct http_state *hs, const char *uri, int is_09)
  * @return ERR_OK if file was found and hs has been initialized correctly
  *         another err_t otherwise
  */
-static err_t http_init_file(struct http_state *hs, struct fs_file *file, int is_09, const char *uri)
+static err_t http_init_file(struct http_state *hs, struct fs_file *file, int32_t is_09, const char *uri)
 {
   if (file != NULL) {
     /* file opened, initialise struct http_state */
@@ -2103,14 +2093,14 @@ static err_t http_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err
 #if LWIP_HTTPD_SUPPORT_POST
 
 err_t httpd_post_begin(void *connection, const char *uri, const char *http_request,
-                       u16_t http_request_len, int content_len, char *response_uri,
+                       u16_t http_request_len, int32_t content_len, char *response_uri,
                        u16_t response_uri_len, u8_t *post_auto_wnd)
 {
   if (!uri || uri[0] == '\0')
     return ERR_ARG;
   
 #if (LWIP_HTTPD_CGI || LWIP_HTTPD_SUPPORT_JS)
-  int i = 0;
+  int32_t i = 0;
   struct http_state *hs = (struct http_state *)connection;
 
   hs->cgi_handler_index = -1;
@@ -2197,7 +2187,7 @@ u8_t httpd_post_finished(void *connection, char *response_uri, u16_t response_ur
     {
       http_post_payload[http_post_payload_len] = 0;
 
-      int count = extract_uri_parameters(hs, http_post_payload);
+      int32_t count = extract_uri_parameters(hs, http_post_payload);
       http_post_payload_len = 0;
 
       if (hs->cgi_handler_index != -1)
@@ -2311,7 +2301,7 @@ void httpd_init(void)
  * @param tags an array of SSI tag strings to search for in SSI-enabled files
  * @param num_tags number of tags in the 'tags' array
  */
-void http_set_ssi_handler(tSSIHandler ssi_handler, const char **tags, int num_tags)
+void http_set_ssi_handler(tSSIHandler ssi_handler, const char **tags, int32_t num_tags)
 {
   LWIP_DEBUGF(HTTPD_DEBUG, ("http_set_ssi_handler\n"));
 
@@ -2333,7 +2323,7 @@ void http_set_ssi_handler(tSSIHandler ssi_handler, const char **tags, int num_ta
  * @param cgis an array of CGI filenames/handler functions
  * @param num_handlers number of elements in the 'cgis' array
  */
-void http_set_cgi_handlers(const tCGI *cgis, int num_handlers)
+void http_set_cgi_handlers(const tCGI *cgis, int32_t num_handlers)
 {
   LWIP_ASSERT("no cgis given", cgis != NULL);
   LWIP_ASSERT("invalid number of handlers", num_handlers > 0);
@@ -2351,7 +2341,7 @@ void http_set_cgi_handlers(const tCGI *cgis, int num_handlers)
  * @param jss an array of JS filenames/handler functions
  * @param num_handlers number of elements in the 'jss' array
  */
-void http_set_js_handlers(const tJS *jss, int num_handlers)
+void http_set_js_handlers(const tJS *jss, int32_t num_handlers)
 {
   LWIP_ASSERT("no jss given", jss != NULL);
   LWIP_ASSERT("invalid number of handlers", num_handlers > 0);
